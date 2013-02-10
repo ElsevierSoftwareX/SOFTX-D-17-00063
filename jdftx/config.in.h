@@ -1,5 +1,5 @@
 /*-------------------------------------------------------------------
-Copyright 2011 Ravishankar Sundararaman
+Copyright 2013 Ravishankar Sundararaman
 
 This file is part of JDFTx.
 
@@ -29,6 +29,5 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #define PACKAGE_SUMMARY "${CPACK_PACKAGE_DESCRIPTION_SUMMARY}"
 #define VERSION_MAJOR_MINOR_PATCH "${VERSION_STRING}"
 #define VERSION_SVN_REVISION "${SUBVERSION_REVISION}"
-
 
 #endif // JDFTX_CONFIG_H
