@@ -22,6 +22,17 @@
   <defs
      id="defs4">
     <linearGradient
+       id="linearGradient3947">
+      <stop
+         style="stop-color:#ffffff;stop-opacity:1;"
+         offset="0"
+         id="stop3949" />
+      <stop
+         style="stop-color:#ffffff;stop-opacity:0;"
+         offset="1"
+         id="stop3951" />
+    </linearGradient>
+    <linearGradient
        id="linearGradient15452">
       <stop
          style="stop-color:#1228ff;stop-opacity:1;"
@@ -791,6 +802,15 @@
        y1="23.091137"
        x2="51.416656"
        y2="41.468166" />
+    <linearGradient
+       inkscape:collect="always"
+       xlink:href="#linearGradient3947"
+       id="linearGradient3953"
+       x1="61"
+       y1="84.25"
+       x2="61"
+       y2="120.86197"
+       gradientUnits="userSpaceOnUse" />
   </defs>
   <sodipodi:namedview
      id="base"
@@ -799,11 +819,11 @@
      borderopacity="1.0"
      inkscape:pageopacity="1"
      inkscape:pageshadow="2"
-     inkscape:zoom="6"
-     inkscape:cx="45.558216"
+     inkscape:zoom="2"
+     inkscape:cx="63.270644"
      inkscape:cy="62.967982"
      inkscape:document-units="px"
-     inkscape:current-layer="Carbon"
+     inkscape:current-layer="layer7"
      showgrid="false"
      inkscape:window-width="1920"
      inkscape:window-height="990"
@@ -855,7 +875,7 @@
      inkscape:label="GoldSurface">
     <g
        id="g14168"
-       style="opacity:0.9">
+       style="opacity:1">
       <g
          id="g14100">
         <g
@@ -1431,6 +1451,19 @@
          y="0"
          x="0" />
     </g>
+  </g>
+  <g
+     inkscape:groupmode="layer"
+     id="layer7"
+     inkscape:label="FadeToWhite"
+     sodipodi:insensitive="true">
+    <rect
+       style="fill:url(#linearGradient3953);fill-opacity:1;stroke:none"
+       id="rect3945"
+       width="427.5"
+       height="51.5"
+       x="-157"
+       y="84" />
   </g>
   <g
      inkscape:label="Molecule (F)"
