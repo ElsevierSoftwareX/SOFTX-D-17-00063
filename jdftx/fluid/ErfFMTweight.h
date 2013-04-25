@@ -20,7 +20,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef JDFTX_FLUID_ERFFMTWEIGHT_H
 #define JDFTX_FLUID_ERFFMTWEIGHT_H
 
-#include <gsl/gsl_sf.h>
+#include <electronic/SphericalHarmonics.h>
 #include <cmath>
 
 //! Utility for creating soft FMT weight functions
@@ -34,12 +34,11 @@ public:
 	}
 
 	//! set the weights at a given G
-	void operator()(int i, double G2, double* w0, double* w1, double* w2, double* w3, double* w1v, double* w2m) const
-	{	double G = sqrt(G2);
-		//Weights without saddle point approx:
+	void operator()(int i, double G, double* w0, double* w1, double* w2, double* w3, double* w1v, double* w2m) const
+	{	//Weights without saddle point approx:
 		double prefac = exp(-0.5*pow(G*sigma,2));
-		double j0 = gsl_sf_bessel_j0(G*R);
-		double j2 = gsl_sf_bessel_j2(G*R);
+		double j0 = bessel_jl(0, G*R);
+		double j2 = bessel_jl(2, G*R);
 		double softness = pow(sigma/R,2);
 		//---
 		w1[i] = R * prefac * j0;
@@ -48,9 +47,9 @@ public:
 
 		//Weights with saddle point approx:
 		prefac = exp(-0.5*pow(sigma ? (r0-R)/sigma : 0.0, 2))/sqrt(c0) * exp(-(0.5/c0)*pow(G*sigma,2));
-		j0 = gsl_sf_bessel_j0(G*r0);
-		j2 = gsl_sf_bessel_j2(G*r0);
-		double j4 = gsl_sf_bessel_jl(4, G*r0);
+		j0 = bessel_jl(0, G*r0);
+		j2 = bessel_jl(2, G*r0);
+		double j4 = bessel_jl(4, G*r0);
 		softness = pow(sigma/r0,2)/c0;
 		//---
 		w0[i]  = prefac * j0;

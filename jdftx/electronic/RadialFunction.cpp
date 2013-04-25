@@ -43,6 +43,7 @@ void RadialFunctionG::init(int l, const std::vector<double>& samples, double dG)
 {	std::vector<double> c = QuinticSpline::getCoeff(samples, l%2==1);
 	dGinv = 1.0/dG;
 	nCoeff = c.size();
+	Gzero = samples[0];
 	#ifdef GPU_ENABLED
 	cudaMalloc(&coeff, sizeof(double)*nCoeff);
 	cudaMemcpy(coeff, c.data(), sizeof(double)*nCoeff, cudaMemcpyHostToDevice);

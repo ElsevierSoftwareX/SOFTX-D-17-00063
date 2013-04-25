@@ -22,126 +22,70 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <core/Operators.h>
 
 
-int get_nSites(std::vector<std::vector<vector3<>>>& PositionList)
-{
-	int counter = 0;
-	for (unsigned i=0; i<PositionList.size(); i++){	counter += PositionList[i].size();	}
-	return counter;
-}
-
-std::vector<Site> get_Site(std::vector<SiteProperties*>& PropList,std::vector<std::vector<vector3<>>>& PositionList)
-{
-	std::vector<Site> site;
-	for (unsigned i=0; i<PropList.size(); i++)
-	{
-		for (unsigned j=0; j<PositionList[i].size(); j++) { site.push_back(Site(i, PropList[i], PositionList[i][j])); }
-	}
-	return site;	
-}
-
-Molecule::Molecule(std::vector<SiteProperties*>& PropList, std::vector<std::vector<vector3<>>>& PositionList, string name)
-: name(name), site(get_Site(PropList,PositionList)), nSites(get_nSites(PositionList)), nIndices(PropList.size())
-{
-}
-
-SiteProperties::SiteProperties(const GridInfo& gInfo, double sphereRadius, double sphereSigma, double chargeZ,
-	RealKernel* chargeKernel, bool indepSite)
-: sphereRadius(sphereRadius), sphereSigma(sphereSigma), chargeZ(chargeZ), chargeKernel(chargeKernel), indepSite(indepSite),
-couplingZnuc(0), atomicNumber(0), couplingElecKernel(0)
+SiteProperties::SiteProperties() : Rhs(0), atomicNumber(0), Znuc(0), sigmaNuc(0), Zelec(0), aElec(0), alpha(0), aPol(0)
 {	
-	if(sphereRadius)
-	{	w0 = new RealKernel(gInfo);
-		w1 = new RealKernel(gInfo);
-		w2 = new RealKernel(gInfo);
-		w3 = new RealKernel(gInfo);
-		w1v = new RealKernel(gInfo);
-		w2m = new RealKernel(gInfo);
-		ErfFMTweight erfFMTweight(sphereRadius, sphereSigma);
-		applyFuncGsq(gInfo, erfFMTweight, w0->data, w1->data, w2->data, w3->data, w1v->data, w2m->data);
-		w0->set();
-		w1->set();
-		w2->set();
-		w3->set();
-		w1v->set();
-		w2m->set();
-	}
-}
-
-//probably will go when H2Osites gets replaced by SiteProperties
-SiteProperties::SiteProperties(const GridInfo& gInfo, double sphereRadius, double sphereSigma,
-	H2OSite& water_site, RealKernel* chargeKernel, bool indepSite)
-: sphereRadius(sphereRadius), sphereSigma(sphereSigma), chargeZ(water_site.Z), chargeKernel(chargeKernel), indepSite(indepSite),
-couplingZnuc(water_site.Znuc), atomicNumber(water_site.atomicNumber), couplingElecKernel(0), siteName(water_site.name), convCouplingWidth(water_site.CouplingWidth),
-convCouplingSiteCharge(water_site.Z), convCouplingSiteModel(water_site.ccSiteModel) 
-{
-	if(sphereRadius)
-	{	w0 = new RealKernel(gInfo);
-		w1 = new RealKernel(gInfo);
-		w2 = new RealKernel(gInfo);
-		w3 = new RealKernel(gInfo);
-		w1v = new RealKernel(gInfo);
-		w2m = new RealKernel(gInfo);
-		ErfFMTweight erfFMTweight(sphereRadius, sphereSigma);
-		applyFuncGsq(gInfo, erfFMTweight, w0->data, w1->data, w2->data, w3->data, w1v->data, w2m->data);
-		w0->set();
-		w1->set();
-		w2->set();
-		w3->set();
-		w1v->set();
-		w2m->set();
-	}
 }
 
 SiteProperties::~SiteProperties()
-{	if(sphereRadius)
-	{	delete w0;
-		delete w1;
-		delete w2;
-		delete w3;
-		delete w1v;
-		delete w2m;
+{	
+	elecKernel.free();
+	chargeKernel.free();
+	if(Rhs)
+	{	w0.free();
+		w1.free();
+		w2.free();
+		w3.free();
+		w1v.free();
+		w2m.free();
 	}
 }
 
-double Molecule::get_charge() const
-{	double Q = 0.0;
-	for(int i=0; i<nSites; i++)
-	{	SiteProperties& s = *site[i].prop;
-		if(s.chargeZ && s.chargeKernel)
-			Q += s.chargeZ * s.chargeKernel->data[0];
+void SiteProperties::setup(const GridInfo& gInfo)
+{
+	//TODO: initialize charge and elec kernels
+	if(Rhs)
+	{	//TODO: Initialize hard sphere kernels
+		//ErfFMTweight erfFMTweight(sphereRadius, sphereSigma);
+		//applyFuncGsq(gInfo, erfFMTweight, w0->data, w1->data, w2->data, w3->data, w1v->data, w2m->data);
 	}
+}
+
+
+
+double Molecule::getCharge() const
+{	double Q = 0.0;
+	for(const SiteGroup& group: siteGroup)
+		if(group.siteProp->chargeKernel)
+			Q += group.siteProp->chargeKernel.Gzero * group.pos.size();
 	return Q;
 }
 
-double Molecule::get_dipole() const
-{	vector3<> electricP(0,0,0);
-	for(int i=0; i<nSites; i++)
-	{	SiteProperties& s = *site[i].prop;
-		if(s.chargeZ && s.chargeKernel)
-			electricP += site[i].pos * s.chargeZ * s.chargeKernel->data[0];
-	}
-	//Check that dipole (if any) is lined up with z-axis
-	double dipoleOffZaxis = hypot(electricP[0], electricP[1]);
-	if(dipoleOffZaxis > std::max(1e-6, 1e-10*electricP.length()))
-		die("Fluid molecule dipole moment component off z-axis is %lg.\n Please orient fluid dipole along reference z-axis\n", dipoleOffZaxis);
-	return electricP[2];
+vector3<> Molecule::getDipole() const
+{	vector3<> P;
+	for(const SiteGroup& group: siteGroup)
+		if(group.siteProp->chargeKernel)
+			for(const vector3<>& r: group.pos)
+				P += group.siteProp->chargeKernel.Gzero * r;
+	return P;
 }
 
 std::map<double,int> Molecule::getBonds() const
 {	std::map<double,int> bond;
-	for(int i=0; i<nSites; i++)
-	{	double Ri = site[i].prop->sphereRadius;
-		if(Ri)
-		{	for(int j=i+1; j<nSites; j++)
-			{	double Rj = site[j].prop->sphereRadius;
-				if(Rj)
-				{	if(fabs(Ri+Rj-(site[i].pos-site[j].pos).length()) < 1e-6*(Ri+Rj))
-					{	//In contact within tolerance:
-						bond[Ri*Rj/(Ri+Rj)]++;
-					}
-				}
+	for(const SiteGroup& group1: siteGroup)
+	{	double R1 = group1.siteProp->Rhs;
+		if(R1) for(vector3<> pos1: group1.pos)
+		{	for(const SiteGroup& group2: siteGroup)
+			double R2 = group2.siteProp->Rhs;
+			if(R2) for(vector3<> pos2: group2.pos)
+			{	if(fabs(R1+R2-(pos1-pos2).length()) < 1e-6*(R1+R2))
+					bond[R1*R2/(R1+R2)]++;
 			}
 		}
+	}
+	//correct for double counting:
+	for(auto& bondEntry: bond)
+	{	assert(bondEntry.second % 2 == 0);
+		bondEntry.second /= 2;
 	}
 	return bond;
 }

@@ -45,6 +45,7 @@ public:
 	}
 	
 	RadialFunctionR* rFunc; //!< copy of the real-space radial version (if created from one)
+	double Gzero; //!< the G=0 value of the kernel
 	
 	#ifndef __in_a_cu_file__
 	//! Helper functional for initializing using a function
