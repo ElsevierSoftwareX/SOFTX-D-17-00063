@@ -80,7 +80,6 @@ public:
 	//! When charged components are present, the unit cell will be neutral including this charge.
 	DataGptr rhoExternal;
 	double Qtol; //!< tolerance for unit cell neutrality (default 1e-12)
-	double (*d0calc)(const DataRptr& d, DataRptr& dd0_dd); //!< HACK: manual constraint on G=0 of potential (and partial derivative)
 
 	//! Initialize the independent variables
 	//! @param scale scale the state that would produce the equilibrium ideal gas densities by this amount to ge tthe guess

@@ -374,53 +374,6 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 		}
 		if(outputs.electricP) *outputs.electricP = electricPtot;
 
-		//Over-ride with a manual constraint on G=0: (HACK-ish)
-		if(d0calc)
-		{	DataGptr Odtot = Od; if(rhoExternal) Odtot += OdExternal;
-			DataRptr dtot = Jdag(Odtot), dd0_ddtot;
-			double d0 = (*d0calc)(dtot, dd0_ddtot), grad_d0 = 0.0;
-
-			//Compute the energy and gradient due to the G=0 component:
-			for(unsigned ic=0; ic<component.size(); ic++)
-			{	const Component& c = component[ic];
-				for(int j=0; j<c.molecule->nIndices; j++)
-				{	const SiteProperties& s = *c.indexedSite[j];
-					if(s.chargeZ && s.chargeKernel)
-					{	double Qsite = s.chargeZ * s.chargeKernel->data[0];
-						double Q0 = Qsite * Ntilde[c.offsetDensity+j]->data()[0].real();
-						Phi["Gzero"] += gInfo.detR * Q0 * d0;
-						//NOTE: factors of dV for functional derivative taken out here
-						grad_d0 += gInfo.nr * Q0;
-						grad_Ntilde[c.offsetDensity+j]->data()[0] += gInfo.nr * d0 * Qsite;
-					}
-				}
-			}
-			if(rhoExternal)
-			{	double Q0 = rhoExternal->data()[0].real();
-				Phi["Gzero"] += gInfo.detR * Q0 * d0;
-				grad_d0 += gInfo.nr * Q0;
-				if(outputs.grad_rhoExternal) (*outputs.grad_rhoExternal)->data()[0] += (1.0/gInfo.dV) * d0;
-				//Kendra - unsure about the normalization of G=0 component of grad_rhoExternal
-			}
-
-			//Propagate gradient via d0 back to net charge density:
-			DataGptr grad_rho = -4*M_PI*Linv(O(J(grad_d0 * dd0_ddtot)));
-			//Accumulate into site density gradients:
-			for(unsigned ic=0; ic<component.size(); ic++)
-			{	const Component& c = component[ic];
-				for(int j=0; j<c.molecule->nIndices; j++)
-				{	const SiteProperties& s = *c.indexedSite[j];
-					if(s.chargeZ && s.chargeKernel)
-					{	double Qsite = s.chargeZ * s.chargeKernel->data[0];
-						grad_Ntilde[c.offsetDensity+j] += Qsite * O(grad_rho);
-					}
-				}
-			}
-			//Update the external gradients:
-			if(outputs.grad_rhoExternal) *outputs.grad_rhoExternal += grad_rho;
-		}
-	}
-
 	//--------- Hard sphere mixture and bonding -------------
 	{	//Compute the FMT weighted densities:
 		DataGptr n0tilde, n1tilde, n2tilde, n3tilde, n1vTilde, n2mTilde;

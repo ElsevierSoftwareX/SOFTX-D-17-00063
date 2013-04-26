@@ -27,41 +27,38 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <vector>
 #include <map>
 
-//! Properties of a site in a multi-site molecule model
-struct SiteProperties
-{
-	string name; //!< site name
-	double Rhs; //!< hard sphere radius
-	int atomicNumber; //!< necessary for vdW parameters
-	double Znuc, sigmaNuc; //!< magnitude of the nuclear charge (positive) and corresponding gaussian width
-	double Zelec, aElec; string elecFilename; //!< magnitude of electron charge (positive) and corresponding cuspless-exponential width (or override with file)
-	double alpha, aPol; //!< isotropic polarizability and corresponding cuspless-exponential width
-
-	SiteProperties();
-	~SiteProperties();
-	void setup(const GridInfo& gInfo); //!< initialize the radial functions from the properties specified above
-
-	RadialFunctionG w0, w1, w2, w3, w1v, w2m; //!< Hard sphere weight functions
-	RadialFunctionG elecKernel, chargeKernel; //!< Electron density and net charge density kernels for the sites
-};
-
-
-//! Group of sites that are identical under molecule symmetries
-struct SiteGroup
-{	std::shared_ptr<SiteProperties> siteProp; //!< Site properties: can be shared between multiple symmetry classes within one molecule and same species in different molecules
-	std::vector< vector3<> > pos; //!< Positions w.r.t molecular origin in the reference orientation
-};
-
-//! Molecule: a collection of sites
+//! Multi-site molecule model
 struct Molecule
-{	string name; //!< An identifier for molecule (used for EnergyComponent labels)
-	std::vector<SiteGroup> siteGroup; //!< list of symmetry-equivalent site groups
+{	
+	string name; //!< Molecule name
+	
+	struct Site
+	{	string name; //!< site name
+		double Rhs; //!< hard sphere radius
+		int atomicNumber; //!< necessary for vdW parameters
+		double Znuc, sigmaNuc; //!< magnitude of the nuclear charge (positive) and corresponding gaussian width
+		double Zelec, aElec; string elecFilename; //!< magnitude of electron charge (positive) and corresponding cuspless-exponential width (or override with file)
+		double alpha, aPol; //!< isotropic polarizability and corresponding cuspless-exponential width
+
+		std::vector< vector3<> > positions; //!< Positions w.r.t molecular origin in the reference orientation
+
+		Site(string name, int atomicNumber=0);
+		~Site();
+		void setup(const GridInfo& gInfo); //!< initialize the radial functions from the properties specified above
+		explicit operator bool() const { return initialized; } //!< return whether site has been setup
+		
+		RadialFunctionG w0, w1, w2, w3, w1v, w2m; //!< Hard sphere weight functions
+		RadialFunctionG elecKernel, chargeKernel; //!< Electron density and net charge density kernels for the sites
+	private:
+		bool initialized;
+	};
+	std::vector< std::shared_ptr<Site> > sites;
+	
+	void setup(const GridInfo& gInfo);
 	
 	double getCharge() const; //!< total charge on molecule
 	vector3<> getDipole() const; //!< total dipole moment on molecule
-
-	//! Get the harmonic sum of radii for spheres in contact, with the multiplicities for each such pair
-	std::map<double,int> getBonds() const;
+	std::map<double,int> getBonds() const; //!< get the harmonic sum of radii for spheres in contact, with the multiplicities for each such pair
 };
 
 #endif // JDFTX_FLUID_MOLECULE_H

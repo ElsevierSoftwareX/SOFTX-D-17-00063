@@ -22,25 +22,26 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <core/Operators.h>
 
 
-SiteProperties::SiteProperties() : Rhs(0), atomicNumber(0), Znuc(0), sigmaNuc(0), Zelec(0), aElec(0), alpha(0), aPol(0)
+Molecule::Site::Site(string name, int atomicNumber) : name(name), Rhs(0), atomicNumber(atomicNumber), Znuc(0), sigmaNuc(0), Zelec(0), aElec(0), alpha(0), aPol(0), initialized(false)
 {	
 }
 
-SiteProperties::~SiteProperties()
-{	
-	elecKernel.free();
-	chargeKernel.free();
-	if(Rhs)
-	{	w0.free();
-		w1.free();
-		w2.free();
-		w3.free();
-		w1v.free();
-		w2m.free();
+Molecule::Site::~Site()
+{	if(initialized)
+	{	elecKernel.free();
+		chargeKernel.free();
+		if(Rhs)
+		{	w0.free();
+			w1.free();
+			w2.free();
+			w3.free();
+			w1v.free();
+			w2m.free();
+		}
 	}
 }
 
-void SiteProperties::setup(const GridInfo& gInfo)
+void Molecule::Site::setup(const GridInfo& gInfo)
 {
 	//TODO: initialize charge and elec kernels
 	if(Rhs)
@@ -48,35 +49,40 @@ void SiteProperties::setup(const GridInfo& gInfo)
 		//ErfFMTweight erfFMTweight(sphereRadius, sphereSigma);
 		//applyFuncGsq(gInfo, erfFMTweight, w0->data, w1->data, w2->data, w3->data, w1v->data, w2m->data);
 	}
+	initialized = true;
 }
 
+
+void Molecule::setup(const GridInfo& gInfo)
+{	for(auto& site: sites) if(!*site) site->setup(gInfo);
+}
 
 
 double Molecule::getCharge() const
 {	double Q = 0.0;
-	for(const SiteGroup& group: siteGroup)
-		if(group.siteProp->chargeKernel)
-			Q += group.siteProp->chargeKernel.Gzero * group.pos.size();
+	for(const auto& site: sites)
+		if(site->chargeKernel)
+			Q += site->chargeKernel.Gzero * site->positons.size();
 	return Q;
 }
 
 vector3<> Molecule::getDipole() const
 {	vector3<> P;
-	for(const SiteGroup& group: siteGroup)
-		if(group.siteProp->chargeKernel)
-			for(const vector3<>& r: group.pos)
-				P += group.siteProp->chargeKernel.Gzero * r;
+	for(const auto& site: sites)
+		if(site->chargeKernel)
+			for(const vector3<>& r: site->positons)
+				P += site->chargeKernel.Gzero * r;
 	return P;
 }
 
 std::map<double,int> Molecule::getBonds() const
 {	std::map<double,int> bond;
-	for(const SiteGroup& group1: siteGroup)
-	{	double R1 = group1.siteProp->Rhs;
-		if(R1) for(vector3<> pos1: group1.pos)
-		{	for(const SiteGroup& group2: siteGroup)
-			double R2 = group2.siteProp->Rhs;
-			if(R2) for(vector3<> pos2: group2.pos)
+	for(const auto& site1: sites)
+	{	double R1 = site1->Rhs;
+		if(R1) for(vector3<> pos1: site1->positons)
+		{	for(const auto& site2: sites)
+			double R2 = site2->Rhs;
+			if(R2) for(vector3<> pos2: site2->positons)
 			{	if(fabs(R1+R2-(pos1-pos2).length()) < 1e-6*(R1+R2))
 					bond[R1*R2/(R1+R2)]++;
 			}
