@@ -41,25 +41,13 @@ public:
 	//! Call after initializing and adding all the components of the fluid mixture
 	//! This calculates the bulk equilibrium densities for all components and corresponding chemical potentials
 	//! so as to achieve pressure P with the specified mole fractions.
-	//! Nguess is the initial guess for the total molecular density used for this adjustment,
-	//! This may be used to select a particular phase (eg. use a low Nguess to pick up the vapor mixture)
-	void setPressure(double P=1.01325*Bar, double Nguess=5e-3);
+	//! The initial guess for the densities is taken from FluidComponent::Nbulk, and this may be altered to select a particular phase
+	void setPressure(double P=1.01325*Bar);
 
 	unsigned get_nIndep() const { return nIndep; }  //!< get the number of scalar fields used as independent variables
 	unsigned get_nDensities() const { return nDensities; } //!< get the total number of site densities
 
-	//! structure which contains information calculated by FluidMixture and needed by ConvCoupling
-	struct ConvCouplingData
-	{
-		DataGptr nFluidTilde;
-		ConvCouplingData(const GridInfo& gInfo);
-		~ConvCouplingData();
-	};
-
-	ConvCouplingData* ConvCouplingPtr;
-	
-	unsigned get_nComponents() const; //!< get number of components
-	const FluidComponent& get_component(unsigned c) const; //!< get component number c
+	const std::vector<const FluidComponent*>& getComponents() const; //!< access component list
 	DataRptrCollection state;
 
 	//! External charge density.
@@ -85,20 +73,20 @@ public:
 	{	
 		DataRptrCollection* N; //!< site densities
 		vector3<>* electricP; //!< total electric dipole moment in cell (useful only with multipole-based IdealGas's)
-		DataGptr* grad_rhoExternal; //!< gradient w.r.t rhoExternal
+		DataGptr* Phi_rhoExternal; //!< derivative of free energy w.r.t rhoExternal
 		DataRptrCollection* psiEff; //!< Estimate ideal gas effective potentials (useful only when no electric field or potential on non-indep sites)
 		
 		//! initialize all the above to null
 		Outputs( DataRptrCollection* N=0, vector3<>* electricP=0,
-			DataGptr* grad_rhoExternal=0, DataRptrCollection* psiEff=0);
+			DataGptr* Phi_rhoExternal=0, DataRptrCollection* psiEff=0);
 	};
 
 	//! @brief Free energy and gradient evaluation
 	//! @param[in] indep Current value of the independent variables
-	//! @param[out] grad_indep Gradient w.r.t indepo at the current value of indep
+	//! @param[out] Phi_indep Gradient w.r.t indep at the current value of indep
 	//! @param[out] outputs optional outputs, see Outputs
 	//! @return Free energy difference (compared to uniform fluid) at this value of indep
-	double operator()(const DataRptrCollection& indep, DataRptrCollection& grad_indep, Outputs outputs=Outputs()) const;
+	double operator()(const DataRptrCollection& indep, DataRptrCollection& Phi_indep, Outputs outputs=Outputs()) const;
 
 	//! @brief Get the free energy, densities and moments for the current state
 	//! @param[out] outputs optional outputs, see Outputs
@@ -126,7 +114,7 @@ private:
 	friend class Fmix;
 
 	//! Compute the uniform excess free energy and gradient w.r.t component molecular densities
-	double computeUniformEx(const std::vector< double >& Nmol, std::vector< double >& grad_Nmol) const;
+	double computeUniformEx(const std::vector< double >& Nmol, std::vector< double >& Phi_Nmol) const;
 
 	//! Compute the pressure of the uniform fluid mixture of total molecular density Ntot
 	double compute_p(double Ntot) const;

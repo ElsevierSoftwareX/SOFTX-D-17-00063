@@ -37,20 +37,20 @@ public:
 		Kmul = -Ion->Esolv*(4*M_PI*pow(Ion->Rsolv,3))/3;
 	}
     string getName() const { return fexIon.getMolecule()->name + "+H2O"; }
-    double compute(const DataGptrCollection& Ntilde, DataGptrCollection& grad_Ntilde) const
+    double compute(const DataGptrCollection& Ntilde, DataGptrCollection& Phi_Ntilde) const
 	{	unsigned iIon = fluidMixture.get_offsetDensity(&fexIon);
 		unsigned iH2O = fluidMixture.get_offsetDensity(&fexH2O);
 		DataGptr V_Ion = gInfo.nr * Kmul*(Ksolv * Ntilde[iIon]);
 		DataGptr V_H2O = gInfo.nr * Kmul*(Ksolv * Ntilde[iH2O]);
-		grad_Ntilde[iIon] += V_H2O;
-		grad_Ntilde[iH2O] += V_Ion;
+		Phi_Ntilde[iIon] += V_H2O;
+		Phi_Ntilde[iH2O] += V_Ion;
 		return gInfo.dV*dot(V_Ion,Ntilde[iH2O]);
 	}
-	double computeUniform(const std::vector<double>& N, std::vector<double>& grad_N) const
+	double computeUniform(const std::vector<double>& N, std::vector<double>& Phi_N) const
 	{	unsigned iIon = fluidMixture.get_offsetDensity(&fexIon);
 		unsigned iH2O = fluidMixture.get_offsetDensity(&fexH2O);
-		grad_N[iIon] += Kmul*Ksolv.data[0]*N[iH2O];
-		grad_N[iH2O] += Kmul*Ksolv.data[0]*N[iIon];
+		Phi_N[iIon] += Kmul*Ksolv.data[0]*N[iH2O];
+		Phi_N[iH2O] += Kmul*Ksolv.data[0]*N[iIon];
 		return N[iIon]*Kmul*Ksolv.data[0]*N[iH2O];
 	}
 private:

@@ -36,10 +36,10 @@ public:
 
 	void initState(const DataRptr* Vex, DataRptr* logPomega, double scale, double Elo, double Ehi) const;
 	void getDensities(const DataRptr* logPomega, DataRptr* N, vector3<>& P) const;
-	double compute(const DataRptr* logPomega, const DataRptr* N, DataRptr* grad_N,
-		const vector3<>& P, vector3<>& grad_P, const double Nscale, double& grad_Nscale) const;
+	double compute(const DataRptr* logPomega, const DataRptr* N, DataRptr* Phi_N,
+		const vector3<>& P, vector3<>& Phi_P, const double Nscale, double& Phi_Nscale) const;
 	void convertGradients(const DataRptr* logPomega, const DataRptr* N,
-		const DataRptr* grad_N, vector3<> grad_P, DataRptr* grad_logPomega, const double Nscale) const;
+		const DataRptr* Phi_N, vector3<> Phi_P, DataRptr* Phi_logPomega, const double Nscale) const;
 
 private:
 	const SO3quad& quad; //!< quadrature for orientation integral

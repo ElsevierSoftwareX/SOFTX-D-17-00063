@@ -82,14 +82,16 @@ struct FluidComponent
 	double Rvdw; //!< effective van der Waals radius of liquid (derived from equation of state) in bohrs
 	double Res; //!< electrostatic radius of solvent (derived from nonlocal response) in bohrs
 	
+	double Nnorm; //!< If Nnorm>=0, this component is switched to the cananoical ensemble (number fixed to Nnorm)
+	
 	//Molecule geometry and site properties:
 	Molecule molecule;
 	
 	FluidComponent(Name name, double T, Functional functional); //!< set default properties
 	
 	//Extra properties when participating in a classical density functional FluidMixture:
-	std::shared_ptr<class IdealGas*> idealGas; //!< Indep <-> Density converter and entropy calculator
-	std::shared_ptr<class Fex*> fex; //!< Excess functional (in excess to sphere mixture and long-range)
+	std::shared_ptr<class IdealGas> idealGas; //!< Indep <-> Density converter and entropy calculator
+	std::shared_ptr<class Fex> fex; //!< Excess functional (in excess to sphere mixture and long-range)
 	unsigned offsetIndep; //!< Offset to the independent variables of this component
 	unsigned offsetDensity; //!< Offset to the site densities that belong to this component
 	void addToFluidMixture(class FluidMixture* fluidMixture); //!< Initialize fex, idealGas and register with fluidMixture

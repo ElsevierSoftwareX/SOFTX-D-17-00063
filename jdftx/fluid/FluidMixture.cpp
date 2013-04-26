@@ -20,38 +20,38 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <fluid/FluidMixture.h>
 #include <fluid/MixedFMT.h>
+#include <fluid/IdealGas.h>
+#include <fluid/Fex.h>
+#include <electronic/operators.h>
 #include <core/EnergyComponents.h>
 
 extern string rigidMoleculeCDFT_ScalarEOSpaper;
 
 FluidMixture::FluidMixture(const GridInfo& gInfo, const double T)
-:gInfo(gInfo),T(T),verboseLog(false),ConvCouplingPtr(0),Qtol(1e-12),nIndep(0),nDensities(0)
-{	logPrintf("Initializing fluid mixture at T=%lf K ...\n", T/Kelvin);
+: gInfo(gInfo), T(T), verboseLog(false), Qtol(1e-12), nIndep(0), nDensities(0)
+{
+	logPrintf("Initializing fluid mixture at T=%lf K ...\n", T/Kelvin);
 	Citations::add("Rigid-molecule density functional theory framework", rigidMoleculeCDFT_ScalarEOSpaper);
 }
 
-void FluidMixture::setPressure(double p, double Nguess)
+void FluidMixture::setPressure(double p)
 {	logPrintf("Adjusting fluid pressure to p=%lf bar\n", p/Bar);
-	//Normalize mole fractions:
-	double xBulkTot=0.0;
-	for(std::vector<Component>::iterator c=component.begin(); c!=component.end(); c++) xBulkTot += c->idealGas->xBulk;
-	for(std::vector<Component>::iterator c=component.begin(); c!=component.end(); c++) c->idealGas->xBulk /= xBulkTot;
 	//Compute the maximum possible density (core packed limit)
-	double zi3=0.0; //n3/N for the bulk mixture
-	for(std::vector<Component>::const_iterator c=component.begin(); c!=component.end(); c++)
-	{	for(int j=0; j<c->molecule->nSites; j++)
-		{	const SiteProperties& s = *(c->molecule->site[j].prop);
-			if(s.sphereRadius) zi3 += s.w3->data[0] * c->idealGas->xBulk;
-		}
+	double Nguess=0., n3=0.;
+	for(const FluidComponent* c: component)
+	{	Nguess += c->Nbulk;
+		for(const auto& site: c->molecule.sites)
+			if(site->Rhs)
+				n3 += site->w3.Gzero * site->positions.size();
 	}
-	double Nmax = 1.0/zi3;
 	const double mulStep = 0.99;
-	if(Nguess > mulStep*Nmax) Nguess = mulStep*Nmax;
-	double pTest = compute_p(Nguess);
+	double Nstart = Nguess;
+	if(n3 > mulStep) Nstart *= mulStep/n3; //ensure that mixtyure doesn;t exceed packing limit
+	double pTest = compute_p(Nstart);
 	//Find an interval of N that brackets P:
 	double Nlo, Nhi;
 	if(pTest > p)
-	{	Nlo = Nguess;
+	{	Nlo = Nstart;
 		do
 		{	Nhi = Nlo;
 			Nlo = mulStep*Nhi;
@@ -60,7 +60,7 @@ void FluidMixture::setPressure(double p, double Nguess)
 		while(pTest>p);
 	}
 	else
-	{	Nhi = Nguess;
+	{	Nhi = Nstart;
 		do
 		{	Nlo = Nhi;
 			Nhi = Nlo/mulStep;
@@ -78,35 +78,24 @@ void FluidMixture::setPressure(double p, double Nguess)
 	}
 	while(Nhi-Nlo>1e-12*Nhi);
 	//Set the chemical potentials and bulk densities for each component:
-	std::vector<double> Nmol(component.size()), grad_Nmol(component.size());
-	for(unsigned ic=0; ic<component.size(); ic++) Nmol[ic] = Ntot*component[ic].idealGas->xBulk;
-	computeUniformEx(Nmol, grad_Nmol);
+	std::vector<double> Nmol(component.size()), Phi_Nmol(component.size());
+	for(unsigned ic=0; ic<component.size(); ic++) Nmol[ic] = (Ntot/Nguess)*component[ic]->Nbulk;
+	computeUniformEx(Nmol, Phi_Nmol);
 	for(unsigned ic=0; ic<component.size(); ic++)
-	{	Component& c = component[ic];
+	{	const FluidComponent& c = *component[ic];
 		c.idealGas->Nbulk = Nmol[ic];
-		c.idealGas->mu = grad_Nmol[ic];
-		logPrintf("\tComponent '%s' at bulk density %le bohr^-3\n", c.molecule->name.c_str(), Nmol[ic]);
+		c.idealGas->mu = Phi_Nmol[ic];
+		logPrintf("\tComponent '%s' at bulk density %le bohr^-3\n", c.molecule.name.c_str(), Nmol[ic]);
 	}
 	this->p = p;
 }
 
-unsigned FluidMixture::get_offsetDensity(const Fex* fex) const
-{	for(std::vector<Component>::const_iterator c=component.begin(); c!=component.end(); c++)
-		if(fex==c->fex)
-			return c->offsetDensity;
-	assert(!"Could not find excess functional in fluid mixture."); return 0;
-}
-
-unsigned int FluidMixture::get_nComponents() const
-{	return component.size();
-}
-
-const FluidMixture::Component& FluidMixture::get_component(unsigned int c) const
-{	return component[c];
+const std::vector<const FluidComponent*>& FluidMixture::getComponents() const
+{	return component;
 }
 
 
-void FluidMixture::addComponent(const FluidComponent* comp)
+void FluidMixture::addComponent(FluidComponent* comp)
 {	component.push_back(comp);
 	//Set the offsets for this component:
 	comp->offsetIndep = nIndep;
@@ -127,7 +116,7 @@ void FluidMixture::initState(double scale, double Elo, double Ehi)
 	//Call initState for each component
 	nullToZero(state, gInfo, nIndep);
 	logPrintf("\n----- FluidMixture::initState() -----\n");
-	for(std::vector<Component>::iterator c=component.begin(); c!=component.end(); c++)
+	for(const FluidComponent* c: component)
 		c->idealGas->initState(&Vex[c->offsetDensity], &state[c->offsetIndep], scale, Elo, Ehi);
 	logPrintf("\n");
 }
@@ -142,8 +131,8 @@ void FluidMixture::saveState(const char* filename) const
 }
 
 FluidMixture::Outputs::Outputs(DataRptrCollection* N, vector3<>* electricP,
-	DataGptr* grad_rhoExternal, DataRptrCollection* psiEff)
-:N(N),electricP(electricP),grad_rhoExternal(grad_rhoExternal),psiEff(psiEff)
+	DataGptr* Phi_rhoExternal, DataRptrCollection* psiEff)
+:N(N),electricP(electricP),Phi_rhoExternal(Phi_rhoExternal),psiEff(psiEff)
 {
 }
 
@@ -151,7 +140,7 @@ FluidMixture::Outputs::Outputs(DataRptrCollection* N, vector3<>* electricP,
 //! Compute the total charge of a set of components: original number of molecules N0 and charge per molecule Q
 //! given as the vector of pairs N0Q, where the actual number of molecules of each component is N = N0 exp(-Q betaV)
 //! Also return the gradient w.r.t betaV
-double Qtot(double betaV, double& grad_betaV, const std::vector<std::pair<double,double> > N0Q,
+double Qtot(double betaV, double& Qtot_betaV, const std::vector<std::pair<double,double> > N0Q,
 			const std::vector<string>* names=0, const GridInfo* gInfo=0, const bool verboseLog=0)
 {	double Qsum=0.0, Qsum_betaV=0.0;
 	for(unsigned i=0; i<N0Q.size(); i++)
@@ -163,12 +152,12 @@ double Qtot(double betaV, double& grad_betaV, const std::vector<std::pair<double
 		Qsum += Q*N;
 		Qsum_betaV += -Q*Q*N;
 	}
-	grad_betaV = Qsum_betaV;
+	Qtot_betaV = Qsum_betaV;
 	return Qsum;
 }
 
 
-double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollection& grad_indep, Outputs outputs) const
+double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollection& Phi_indep, Outputs outputs) const
 {	
 	//logPrintf("indep.size: %d nIndep: %d\n",indep.size(),nIndep);
 	assert(indep.size()==nIndep);
@@ -177,16 +166,16 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 	std::vector<vector3<> > P(component.size()); //total dipole moment per component
 	DataGptrCollection Ntilde(nDensities); //site densities (in reciprocal space)
 	for(unsigned ic=0; ic<component.size(); ic++)
-	{	const Component& c = component[ic];
-		DataRptrCollection N(c.molecule->nIndices);
+	{	const FluidComponent& c = *component[ic];
+		DataRptrCollection N(c.molecule.sites.size());
 		c.idealGas->getDensities(&indep[c.offsetIndep], &N[0], P[ic]);
-		for(int j=0; j<c.molecule->nIndices; j++)
+		for(unsigned i=0; i<c.molecule.sites.size(); i++)
 		{	//Replace negative densities with 0:
 			double Nmin, Nmax;
-			callPref(eblas_capMinMax)(gInfo.nr, N[j]->dataPref(), Nmin, Nmax, 0.);
+			callPref(eblas_capMinMax)(gInfo.nr, N[i]->dataPref(), Nmin, Nmax, 0.);
 			//store site densities in fourier space
-			Ntilde[c.offsetDensity+j] = J(N[j]);
-			N[j] = 0; //Really skimp on memory!
+			Ntilde[c.offsetDensity+i] = J(N[i]);
+			N[i] = 0; //Really skimp on memory!
 		}
 	}
 
@@ -201,23 +190,19 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 	if(rhoExternal) Qfixed += integral(rhoExternal);
 	std::vector<std::pair<double,double> > N0Q;
 	for(unsigned ic=0; ic<component.size(); ic++)
-	{
-		const Component& c = component[ic];
-		double Qmolecule = c.molecule->get_charge();
-		if ( fabs(Qmolecule) < 1e-14 ) Qmolecule = 0.0; //create neutrality constraint
-		if(c.idealGas->Nnorm>0 || Qmolecule)
-		{
-			double N0 = integral(Ntilde[c.offsetDensity])/c.indexedSiteMultiplicity[0];
-			if(c.idealGas->Nnorm>0)
-			{
-				Nscale[ic] = c.idealGas->Nnorm/N0;
-				Nscale_N0[ic][ic] = -c.idealGas->Nnorm/pow(N0,2);
-				Qfixed += Qmolecule*c.idealGas->Nnorm;
+	{	const FluidComponent& c = *component[ic];
+		double Qmolecule = c.molecule.getCharge();
+		if(fabs(Qmolecule) < 1e-14) Qmolecule = 0.0; //create neutrality constraint
+		if(c.Nnorm>0 || Qmolecule)
+		{	double N0 = integral(Ntilde[c.offsetDensity])/c.molecule.sites[0]->positions.size();
+			if(c.Nnorm>0)
+			{	Nscale[ic] = c.Nnorm/N0;
+				Nscale_N0[ic][ic] = -c.Nnorm/pow(N0,2);
+				Qfixed += Qmolecule*c.Nnorm;
 			}
 			else
-			{
-				N0Q.push_back(std::make_pair(N0, Qmolecule));
-				names.push_back(c.molecule->name);
+			{	N0Q.push_back(std::make_pair(N0, Qmolecule));
+				names.push_back(c.molecule.name);
 			}
 		}
 	}
@@ -242,134 +227,89 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 			betaV -= Qcell/Qprime; //Newton-Raphson update
 		}
 		for(unsigned ic=0; ic<component.size(); ic++)
-		{	const Component& ci = component[ic];
-			double Qi = ci.molecule->get_charge();
-			if(Qi && ci.idealGas->Nnorm<=0)
+		{	const FluidComponent& ci = *component[ic];
+			double Qi = ci.molecule.getCharge();
+			if(Qi && ci.Nnorm<=0)
 			{	Nscale[ic] = exp(-Qi*betaV);
 				Nscale_Qfixed[ic] = exp(-Qi*betaV) * Qi / Qprime;
 				for(unsigned jc=0; jc<component.size(); jc++)
-				{	const Component& cj = component[jc];
-					double Qj = cj.molecule->get_charge();
-					if(Qj && cj.idealGas->Nnorm<=0)
+				{	const FluidComponent& cj = *component[jc];
+					double Qj = cj.molecule.getCharge();
+					if(Qj && cj.Nnorm<=0)
 						Nscale_N0[ic][jc] += Qi*Qj*exp(-(Qi+Qj)*betaV)/Qprime;
 				}
 			}
 		}
 	}
-	std::vector<double> grad_Nscale(component.size(), 0.0); //accumulate explicit derivatives w.r.t Nscale here
+	std::vector<double> Phi_Nscale(component.size(), 0.0); //accumulate explicit derivatives w.r.t Nscale here
 
 	//Apply the scale factors to the site densities
 	for(unsigned ic=0; ic<component.size(); ic++)
-	{	const Component& c = component[ic];
-		for(int j=0; j<c.molecule->nIndices; j++)
-			Ntilde[c.offsetDensity+j] *= Nscale[ic];
+	{	const FluidComponent& c = *component[ic];
+		for(unsigned i=0; i<c.molecule.sites.size(); i++)
+			Ntilde[c.offsetDensity+i] *= Nscale[ic];
 		P[ic] *= Nscale[ic];
 	}
 
-	//If we are using convolution coupling set the fluid electron density to zero before the sum over the molecules
-	if (ConvCouplingPtr)
-	{
-		initZero(ConvCouplingPtr->nFluidTilde,gInfo);
-	}
-
 	EnergyComponents Phi; //the grand free energy (with component information)
-	DataGptrCollection grad_Ntilde(nDensities); //gradients (functional derivative) w.r.t reciprocal space site densities
-	std::vector<vector3<> > grad_P(component.size()); //gradient (partial derivative) w.r.t cell dipole
+	DataGptrCollection Phi_Ntilde(nDensities); //gradients (functional derivative) w.r.t reciprocal space site densities
+	std::vector<vector3<> > Phi_P(component.size()); //gradient (partial derivative) w.r.t cell dipole
 
 	//--------- Compute the (scaled) mean field coulomb interaction --------
 	{	DataGptr Od; //total electrostatic potential (with a factor of O)
 		DataGptr rho; //total charge density
-		DataGptr OdExternal; //external electrostatic potential
-		if(rhoExternal)
-		{
-			OdExternal = O(-4*M_PI*Linv(O(rhoExternal)));
-			if(outputs.grad_rhoExternal) initZero(*outputs.grad_rhoExternal,gInfo);
-		}
-
-		vector3<> electricPtot(0,0,0); //total electric dipole moment in cell
+		
+		vector3<> Ptot(0,0,0); //total electric dipole moment in cell
 		for(unsigned ic=0; ic<component.size(); ic++)
-		{	const Component& c = component[ic];
+		{	const FluidComponent& c = *component[ic];
 			DataGptr rho_c; //total charge from this fluid component
-			for(int j=0; j<c.molecule->nIndices; j++)
-			{	const SiteProperties& s = *c.indexedSite[j];
-				if(s.chargeZ && s.chargeKernel)
-					rho_c += s.chargeZ * (*s.chargeKernel * Ntilde[c.offsetDensity+j]);
+			for(unsigned i=0; i<c.molecule.sites.size(); i++)
+			{	const Molecule::Site& s = *(c.molecule.sites[i]);
+				if(s.chargeKernel)
+					rho_c += s.chargeKernel * Ntilde[c.offsetDensity+i];
 			}
 			if(!rho_c) continue;
 			DataGptr Od_c = O(-4*M_PI*Linv(O(rho_c))); //total electrostatic potential from this fluid component
 			Od += Od_c;
 			rho += rho_c;
-			electricPtot += c.molecule->get_dipole()*P[ic];
-
-			//Compute electrostatic coupling to the external charge (and its gradients)
-			if(OdExternal)
-			{	
-				DataGptr rho_cCoupling;
-				nullToZero(rho_cCoupling,gInfo);
-				for(int j=0; j<c.molecule->nIndices; j++)
-				{	
-					const SiteProperties& s = *c.indexedSite[j];
-					if(s.couplingElecKernel) //if there is no Znuc, what do we do? //make sure that couplingElecKernel is allocated null
-					{
-						rho_cCoupling += (*s.couplingElecKernel * Ntilde[c.offsetDensity+j]);
-						if(s.couplingZnuc) 
-							rho_cCoupling -= s.couplingZnuc * Ntilde[c.offsetDensity+j];
-						if(ConvCouplingPtr)
-							ConvCouplingPtr->nFluidTilde += (*s.couplingElecKernel * Ntilde[c.offsetDensity+j]);
-					}
-					else if(s.chargeZ && s.chargeKernel)
-						rho_cCoupling += s.chargeZ * (*s.chargeKernel * Ntilde[c.offsetDensity+j]);
-				}
-				if(rho_cCoupling)
-				{	
-					if(outputs.grad_rhoExternal)
-					{	
-						*outputs.grad_rhoExternal += (-4*M_PI*Linv(O(rho_cCoupling)));
-					}
-					Phi["ExtCoulomb"] += dot(rho_cCoupling, OdExternal);
-					for(int j=0; j<c.molecule->nIndices; j++)
-					{	
-						const SiteProperties& s = *c.indexedSite[j];
-						if(s.couplingElecKernel)
-						{
-							grad_Ntilde[c.offsetDensity+j] += (1.0/gInfo.dV) * (*s.couplingElecKernel * OdExternal); //coupling electrons
-							if(s.couplingZnuc)	
-								axpy(-s.couplingZnuc/gInfo.dV, OdExternal, grad_Ntilde[c.offsetDensity+j]); //coupling nuclei
-						}
-						else if(s.chargeZ && s.chargeKernel)
-							grad_Ntilde[c.offsetDensity+j] += (s.chargeZ/gInfo.dV) * (*s.chargeKernel * OdExternal);
-					}
-				}
-			}
+			Ptot += P[ic];
 
 			//Add the extra correlation contribution within component
 			double corrFac = c.fex->get_aDiel() - 1;
 			DataGptr Od_cCorr = corrFac * Od_c;
 			Phi["Coulomb"] += 0.5*dot(rho_c, Od_cCorr);
-			for(int j=0; j<c.molecule->nIndices; j++)
-			{	const SiteProperties& s = *c.indexedSite[j];
-				if(s.chargeZ && s.chargeKernel)
-					grad_Ntilde[c.offsetDensity+j] += (s.chargeZ/gInfo.dV) * (*s.chargeKernel * Od_cCorr);
+			for(unsigned i=0; i<c.molecule.sites.size(); i++)
+			{	const Molecule::Site& s = *(c.molecule.sites[i]);
+				if(s.chargeKernel)
+					Phi_Ntilde[c.offsetDensity+i] += (1./gInfo.dV) * (s.chargeKernel * Od_cCorr);
 			}
-			Phi["PsqCell"] += 0.5 * 4*M_PI*corrFac * P[ic].length_squared() * pow(c.molecule->get_dipole(),2) / gInfo.detR;
-			grad_P[ic] = 4*M_PI*corrFac * P[ic] * pow(c.molecule->get_dipole(),2) / gInfo.detR;
+			Phi["PsqCell"] += 0.5 * 4*M_PI*corrFac * P[ic].length_squared() / gInfo.detR;
+			Phi_P[ic] = 4*M_PI*corrFac * P[ic] / gInfo.detR;
 		}
 		//Now add the true mean-field contribution from Od to all the site densities:
 		if(rho)
 		{	Phi["Coulomb"] += 0.5*dot(rho,Od);
-			Phi["PsqCell"] += 0.5 * 4*M_PI * electricPtot.length_squared() / gInfo.detR;
+			Phi["PsqCell"] += 0.5 * 4*M_PI * Ptot.length_squared() / gInfo.detR;
+			DataGptr Phi_rho = Od;
+			vector3<> Phi_Ptot = 4*M_PI * Ptot / gInfo.detR;
+			if(rhoExternal)
+			{	Phi["ExtCoulomb"] += dot(rhoExternal, Od);
+				Phi_rho += O(-4*M_PI*Linv(O(rhoExternal)));
+				if(outputs.Phi_rhoExternal) *outputs.Phi_rhoExternal = Od;
+			}
 			for(unsigned ic=0; ic<component.size(); ic++)
-			{	const Component& c = component[ic];
-				for(int j=0; j<c.molecule->nIndices; j++)
-				{	const SiteProperties& s = *c.indexedSite[j];
-					if(s.chargeZ && s.chargeKernel)
-						grad_Ntilde[c.offsetDensity+j] += (s.chargeZ/gInfo.dV) * (*s.chargeKernel * Od);
+			{	const FluidComponent& c = *component[ic];
+				for(unsigned i=0; i<c.molecule.sites.size(); i++)
+				{	const Molecule::Site& s = *(c.molecule.sites[i]);
+					if(s.chargeKernel)
+						Phi_Ntilde[c.offsetDensity+i] += (1./gInfo.dV) * (s.chargeKernel * Phi_rho);
 				}
-				grad_P[ic] += 4*M_PI * electricPtot * c.molecule->get_dipole() / gInfo.detR;
+				Phi_P[ic] += Phi_Ptot;
 			}
 		}
-		if(outputs.electricP) *outputs.electricP = electricPtot;
-
+		if(outputs.electricP) *outputs.electricP = Ptot;
+	}
+	
 	//--------- Hard sphere mixture and bonding -------------
 	{	//Compute the FMT weighted densities:
 		DataGptr n0tilde, n1tilde, n2tilde, n3tilde, n1vTilde, n2mTilde;
@@ -378,20 +318,20 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 		std::vector<std::map<double,int> > bond(component.size()); //sets of bonds for each molecule
 		bool bondsPresent = false; //whether bonds are present for any molecule
 		for(unsigned ic=0; ic<component.size(); ic++)
-		{	const Component& c = component[ic];
-			bond[ic] = c.molecule->getBonds();
+		{	const FluidComponent& c = *component[ic];
+			bond[ic] = c.molecule.getBonds();
 			DataGptr n0molTilde;
-			for(int j=0; j<c.molecule->nIndices; j++)
-			{	const SiteProperties& s = *(c.indexedSite[j]);
-				if(s.sphereRadius)
-				{	const DataGptr& Nsite = Ntilde[c.offsetDensity+j];
-					n0mult[ic] += c.indexedSiteMultiplicity[j];
-					n0molTilde += *s.w0  * Nsite;
-					n1tilde    += *s.w1  * Nsite;
-					n2tilde    += *s.w2  * Nsite;
-					n3tilde    += *s.w3  * Nsite;
-					n1vTilde   += *s.w1v * Nsite;
-					n2mTilde   += *s.w2m * Nsite;
+			for(unsigned i=0; i<c.molecule.sites.size(); i++)
+			{	const Molecule::Site& s = *(c.molecule.sites[i]);
+				if(s.Rhs)
+				{	const DataGptr& Nsite = Ntilde[c.offsetDensity+i];
+					n0mult[ic] += s.positions.size();
+					n0molTilde += s.w0  * Nsite;
+					n1tilde    += s.w1  * Nsite;
+					n2tilde    += s.w2  * Nsite;
+					n3tilde    += s.w3  * Nsite;
+					n1vTilde   += s.w1v * Nsite;
+					n2mTilde   += s.w2m * Nsite;
 				}
 			}
 			if(n0molTilde) n0tilde += n0molTilde;
@@ -404,44 +344,44 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 		{	DataRptr n0 = I(n0tilde); n0tilde=0;
 			DataRptr n1 = I(n1tilde); n1tilde=0;
 			DataRptr n2 = I(n2tilde); n2tilde=0;
-			DataRptr grad_n0, grad_n1, grad_n2; DataGptr grad_n3tilde, grad_n1vTilde, grad_n2mTilde;
+			DataRptr Phi_n0, Phi_n1, Phi_n2; DataGptr Phi_n3tilde, Phi_n1vTilde, Phi_n2mTilde;
 			//Compute the sphere mixture free energy:
 			Phi["MixedFMT"] += T * PhiFMT(n0, n1, n2, n3tilde, n1vTilde, n2mTilde,
-				grad_n0, grad_n1, grad_n2, grad_n3tilde, grad_n1vTilde, grad_n2mTilde);
+				Phi_n0, Phi_n1, Phi_n2, Phi_n3tilde, Phi_n1vTilde, Phi_n2mTilde);
 			//Bonding corrections if required
 			if(bondsPresent)
 			{	for(unsigned ic=0; ic<component.size(); ic++)
-				{	const Component& c = component[ic];
-					DataRptr grad_n0mol;
-					for(std::map<double,int>::iterator b=bond[ic].begin(); b!=bond[ic].end(); b++)
-						Phi["Bonding"] += T * PhiBond(b->first, b->second*1.0/n0mult[ic],
-							n0mol[ic], n2, n3tilde, grad_n0mol, grad_n2, grad_n3tilde);
-					if(grad_n0mol)
+				{	const FluidComponent& c = *component[ic];
+					DataRptr Phi_n0mol;
+					for(const auto& b: bond[ic])
+						Phi["Bonding"] += T * PhiBond(b.first, b.second*1./n0mult[ic],
+							n0mol[ic], n2, n3tilde, Phi_n0mol, Phi_n2, Phi_n3tilde);
+					if(Phi_n0mol)
 					{	//Propagate gradient w.r.t n0mol[ic] to the site densities:
-						DataGptr grad_n0molTilde = Idag(grad_n0mol);
-						for(int j=0; j<c.molecule->nIndices; j++)
-						{	const SiteProperties& s = *(c.indexedSite[j]);
-							if(s.sphereRadius)
-								grad_Ntilde[c.offsetDensity+j] += T * (*s.w0  * grad_n0molTilde);
+						DataGptr Phi_n0molTilde = Idag(Phi_n0mol);
+						for(unsigned i=0; i<c.molecule.sites.size(); i++)
+						{	const Molecule::Site& s = *(c.molecule.sites[i]);
+							if(s.Rhs)
+								Phi_Ntilde[c.offsetDensity+i] += T * (s.w0  * Phi_n0molTilde);
 						}
 					}
 				}
 			}
 			//Accumulate gradients w.r.t weighted densities to site densities:
-			DataGptr grad_n0tilde = Idag(grad_n0); grad_n0=0;
-			DataGptr grad_n1tilde = Idag(grad_n1); grad_n1=0;
-			DataGptr grad_n2tilde = Idag(grad_n2); grad_n2=0;
-			for(std::vector<Component>::const_iterator c=component.begin(); c!=component.end(); c++)
-			{	for(int j=0; j<c->molecule->nIndices; j++)
-				{	const SiteProperties& s = *(c->indexedSite[j]);
-					if(s.sphereRadius)
-					{	DataGptr& grad_Nsite = grad_Ntilde[c->offsetDensity+j];
-						grad_Nsite += T * (*s.w0  * grad_n0tilde);
-						grad_Nsite += T * (*s.w1  * grad_n1tilde);
-						grad_Nsite += T * (*s.w2  * grad_n2tilde);
-						grad_Nsite += T * (*s.w3  * grad_n3tilde);
-						grad_Nsite += T * (*s.w1v * grad_n1vTilde);
-						grad_Nsite += T * (*s.w2m * grad_n2mTilde);
+			DataGptr Phi_n0tilde = Idag(Phi_n0); Phi_n0=0;
+			DataGptr Phi_n1tilde = Idag(Phi_n1); Phi_n1=0;
+			DataGptr Phi_n2tilde = Idag(Phi_n2); Phi_n2=0;
+			for(const FluidComponent* c: component)
+			{	for(unsigned i=0; i<c->molecule.sites.size(); i++)
+				{	const Molecule::Site& s = *(c->molecule.sites[i]);
+					if(s.Rhs)
+					{	DataGptr& Phi_Nsite = Phi_Ntilde[c->offsetDensity+i];
+						Phi_Nsite += T * (s.w0  * Phi_n0tilde);
+						Phi_Nsite += T * (s.w1  * Phi_n1tilde);
+						Phi_Nsite += T * (s.w2  * Phi_n2tilde);
+						Phi_Nsite += T * (s.w3  * Phi_n3tilde);
+						Phi_Nsite += T * (s.w1v * Phi_n1vTilde);
+						Phi_Nsite += T * (s.w2m * Phi_n2mTilde);
 					}
 				}
 			}
@@ -449,112 +389,99 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 	}
 
 	//---------- Excess functionals --------------
-	for(std::vector<Component>::const_iterator c=component.begin(); c!=component.end(); c++)
-		Phi["Fex("+c->molecule->name+")"] += c->fex->compute(&Ntilde[c->offsetDensity], &grad_Ntilde[c->offsetDensity]);
+	for(const FluidComponent* c: component)
+		Phi["Fex("+c->molecule.name+")"] += c->fex->compute(&Ntilde[c->offsetDensity], &Phi_Ntilde[c->offsetDensity]);
 
 	//--------- Mixing functionals --------------
-	for(std::vector<const Fmix*>::const_iterator fmix=fmixArr.begin(); fmix!=fmixArr.end(); fmix++)
-		Phi["Fmix("+(*fmix)->getName()+")"] += (*fmix)->compute(Ntilde, grad_Ntilde);
+	for(const Fmix* fmix: fmixArr)
+		Phi["Fmix("+fmix->getName()+")"] += fmix->compute(Ntilde, Phi_Ntilde);
 
 	//--------- PhiNI ---------
-	nullToZero(grad_Ntilde, gInfo);
+	nullToZero(Phi_Ntilde, gInfo);
 	if(outputs.N) outputs.N->resize(nDensities);
 	//Put the site densities and gradients back in real space
 	DataRptrCollection N(nDensities);
-	DataRptrCollection grad_N(nDensities);
+	DataRptrCollection Phi_N(nDensities);
 	for(unsigned i=0; i<nDensities; i++)
 	{	N[i] = I(Ntilde[i]); Ntilde[i]=0;
-		grad_N[i] = Jdag(grad_Ntilde[i]); grad_Ntilde[i] = 0;
+		Phi_N[i] = Jdag(Phi_Ntilde[i]); Phi_Ntilde[i] = 0;
 		if(outputs.N) (*outputs.N)[i] = N[i]; //Link site-density to return pointer if necessary
 	}
 	//Estimate psiEff based on gradients, if requested
 	if(outputs.psiEff)
-	{	outputs.psiEff->clear();
-		for(const Component& c: component)
-		{	bool muAdded = false;
-			int curSiteMult=0; //multiplicity of current site
-			for(int i=0; i<c.molecule->nSites; i++)
-			{	curSiteMult++;
-				if(!(c.molecule->site[i].prop->indepSite)) continue;
-				if((i+1!=c.molecule->nSites)
-					&& (c.molecule->site[i].index == c.molecule->site[i+1].index))
-					continue; //this is not the last of a chain of identical sites
-				int iDensity = c.molecule->site[i].index;
-				DataRptr psiCur = grad_N[c.offsetDensity+iDensity] + c.idealGas->V[iDensity];
-				if(!muAdded)
-				{	psiCur -= c.idealGas->mu/curSiteMult;
-					muAdded = true;
-				}
+	{	outputs.psiEff->resize(nDensities);
+		for(const FluidComponent* c: component)
+			for(unsigned i=0; i<c->molecule.sites.size(); i++)
+			{	DataRptr& psiCur = outputs.psiEff->at(c->offsetDensity+i);
+				psiCur = Phi_N[c->offsetDensity+i] + c->idealGas->V[i];
+				if(i==0) psiCur -= c->idealGas->mu / c->molecule.sites[0]->positions.size();
 				psiCur *= (-1./T);
-				outputs.psiEff->push_back(psiCur);
-				curSiteMult=0; //will be starting a new site after this
 			}
-		}
 	}
 	for(unsigned ic=0; ic<component.size(); ic++)
-	{	const Component& c = component[ic];
-		Phi["PhiNI("+c.molecule->name+")"] +=
-			c.idealGas->compute(&indep[c.offsetIndep], &N[c.offsetDensity], &grad_N[c.offsetDensity],
-				P[ic], grad_P[ic], Nscale[ic], grad_Nscale[ic]);
+	{	const FluidComponent& c = *component[ic];
+		Phi["PhiNI("+c.molecule.name+")"] +=
+			c.idealGas->compute(&indep[c.offsetIndep], &N[c.offsetDensity], &Phi_N[c.offsetDensity],
+				P[ic], Phi_P[ic], Nscale[ic], Phi_Nscale[ic]);
 
 		//Fixed N correction to entropy:
 		if(Nscale[ic]!=1.0)
-		{	double deltaTs = T*log(Nscale[ic])/c.indexedSiteMultiplicity[0];
-			grad_N[c.offsetDensity] += deltaTs;
-			Phi["PhiNI("+c.molecule->name+")"] += integral(N[c.offsetDensity])*deltaTs;
+		{	double deltaTs = T*log(Nscale[ic]) / c.molecule.sites[0]->positions.size();
+			Phi_N[c.offsetDensity] += deltaTs;
+			Phi["PhiNI("+c.molecule.name+")"] += integral(N[c.offsetDensity])*deltaTs;
 		}
 	}
-	//Add in the implicit contributions to grad_Nscale
+	//Add in the implicit contributions to Phi_Nscale
 	for(unsigned ic=0; ic<component.size(); ic++)
-	{	const Component& ci = component[ic];
+	{	const FluidComponent& ci = *component[ic];
 		bool anyNonzero=false;
 		for(unsigned jc=0; jc<component.size(); jc++)
 			if(Nscale_N0[ic][jc])
 				anyNonzero=true;
 		if(anyNonzero)
-		{	grad_Nscale[ic] += dot(P[ic], grad_P[ic]);
-			for(int ki=0; ki<ci.molecule->nIndices; ki++)
-				grad_Nscale[ic] += gInfo.dV*dot(N[ci.offsetDensity+ki], grad_N[ci.offsetDensity+ki])/ Nscale[ic];
+		{	Phi_Nscale[ic] += dot(P[ic], Phi_P[ic]);
+			for(unsigned i=0; i<ci.molecule.sites.size(); i++)
+				Phi_Nscale[ic] += gInfo.dV*dot(N[ci.offsetDensity+i], Phi_N[ci.offsetDensity+i])/ Nscale[ic];
 		}
 	}
 	//Propagate gradients from Nscale to N:
 	for(unsigned jc=0; jc<component.size(); jc++)
-	{	const Component& cj = component[jc];
-		double grad_Ncontrib = 0.0;
+	{	const FluidComponent& cj = *component[jc];
+		double Phi_Ncontrib = 0.0;
 		for(unsigned ic=0; ic<component.size(); ic++)
 			if(Nscale_N0[ic][jc])
-				grad_Ncontrib += grad_Nscale[ic] * Nscale_N0[ic][jc];
-		if(grad_Ncontrib)
-			grad_N[cj.offsetDensity] += grad_Ncontrib / (Nscale[jc] * cj.indexedSiteMultiplicity[0]);
+				Phi_Ncontrib += Phi_Nscale[ic] * Nscale_N0[ic][jc];
+		if(Phi_Ncontrib)
+			Phi_N[cj.offsetDensity] += Phi_Ncontrib / (Nscale[jc] * cj.molecule.sites[0]->positions.size());
 	}
 
-	//Propagate gradients from grad_N to grad_indep
-	grad_indep.resize(nIndep);
+	//Propagate gradients from Phi_N to Phi_indep
+	Phi_indep.resize(nIndep);
 	for(unsigned ic=0; ic<component.size(); ic++)
-	{	const Component& c = component[ic];
+	{	const FluidComponent& c = *component[ic];
 		c.idealGas->convertGradients(&indep[c.offsetIndep], &N[c.offsetDensity],
-			&grad_N[c.offsetDensity], grad_P[ic], &grad_indep[c.offsetIndep], Nscale[ic]);
+			&Phi_N[c.offsetDensity], Phi_P[ic], &Phi_indep[c.offsetIndep], Nscale[ic]);
 	}
 
 	//Propagate gradients from Nscale to Qfixed / rhoExternal (Natural G=0 solution)
-	if(outputs.grad_rhoExternal && (!d0calc))
-	{	double grad_Qfixed = 0.;
+	if(outputs.Phi_rhoExternal)
+	{	double Phi_Qfixed = 0.;
 		for(unsigned ic=0; ic<component.size(); ic++)
-			grad_Qfixed += grad_Nscale[ic] * Nscale_Qfixed[ic];
-		(*outputs.grad_rhoExternal)->setGzero(grad_Qfixed);
+			Phi_Qfixed += Phi_Nscale[ic] * Nscale_Qfixed[ic];
+		(*outputs.Phi_rhoExternal)->setGzero(Phi_Qfixed);
 	}
 	
 	Phi["+pV"] += p * gInfo.detR; //background correction
 
 	if(verboseLog) Phi.print(globalLog, true, "\t\t\t\t%15s = %25.16lf\n");
 
-	grad_indep *= gInfo.dV; //convert functional derivative to partial derivative
+	Phi_indep *= gInfo.dV; //convert functional derivative to partial derivative
 	return Phi;
 }
 
 double FluidMixture::getFreeEnergy(Outputs outputs) const
-{	DataRptrCollection grad_state;
-	return (*this)(state, grad_state, outputs);
+{	DataRptrCollection Phi_state;
+	return (*this)(state, Phi_state, outputs);
 	//calls operator() and provides whichever outputs are requested
 	//before calling must create an Outputs structure with the required quantities allocated.
 }
@@ -568,16 +495,16 @@ double FluidMixture::compute(DataRptrCollection* grad)
 	return (*this)(state, grad ? *grad : tempGrad, Outputs());
 }
 
-double FluidMixture::computeUniformEx(const std::vector<double>& Nmol, std::vector<double>& grad_Nmol) const
+double FluidMixture::computeUniformEx(const std::vector<double>& Nmol, std::vector<double>& Phi_Nmol) const
 {	//--------- Compute the site densities ----------
 	std::vector<double> N(nDensities);
 	for(unsigned ic=0; ic<component.size(); ic++)
-	{	const Component& c = component[ic];
-		for(int j=0; j<c.molecule->nSites; j++)
-			N[c.offsetDensity + c.molecule->site[j].index] += Nmol[ic];
+	{	const FluidComponent& c = *component[ic];
+		for(unsigned i=0; i<c.molecule.sites.size(); i++)
+			N[c.offsetDensity + i] += Nmol[ic] * c.molecule.sites[i]->positions.size();
 	}
 
-	EnergyComponents phi; std::vector<double> grad_N(nDensities);
+	EnergyComponents phi; std::vector<double> Phi_N(nDensities);
 
 	//-------- Mean field coulomb -------- (No contribution in uniform fluid)
 
@@ -587,91 +514,82 @@ double FluidMixture::computeUniformEx(const std::vector<double>& Nmol, std::vect
 	std::vector<int> n0mult(component.size(), 0); //number of sites which contribute to n0 for each molecule
 	std::vector<std::map<double,int> > bond(component.size()); //sets of bonds for each molecule
 	for(unsigned ic=0; ic<component.size(); ic++)
-	{	const Component& c = component[ic];
-		bond[ic] = c.molecule->getBonds();
-		for(int j=0; j<c.molecule->nIndices; j++)
-		{	const SiteProperties& s = *(c.indexedSite[j]);
-			if(s.sphereRadius)
-			{	double Nsite = N[c.offsetDensity+j];
-				n0mult[ic] += c.indexedSiteMultiplicity[j];
-				n0mol[ic]  += s.w0->data[0]  * Nsite;
-				n1         += s.w1->data[0]  * Nsite;
-				n2         += s.w2->data[0]  * Nsite;
-				n3         += s.w3->data[0]  * Nsite;
+	{	const FluidComponent& c = *component[ic];
+		bond[ic] = c.molecule.getBonds();
+		for(unsigned i=0; i<c.molecule.sites.size(); i++)
+		{	const Molecule::Site& s = *(c.molecule.sites[i]);
+			if(s.Rhs)
+			{	double Nsite = N[c.offsetDensity+i];
+				n0mult[ic] += s.positions.size();
+				n0mol[ic]  += s.w0.Gzero  * Nsite;
+				n1         += s.w1.Gzero  * Nsite;
+				n2         += s.w2.Gzero  * Nsite;
+				n3         += s.w3.Gzero  * Nsite;
 			}
 		}
 		n0 += n0mol[ic];
 	}
 	if(n0)
-	{	double grad_n0=0.0, grad_n1=0.0, grad_n2=0.0, grad_n3=0.0;
-		phi["MixedFMT"] = T * phiFMTuniform(n0, n1, n2, n3, grad_n0, grad_n1, grad_n2, grad_n3);
+	{	double Phi_n0=0.0, Phi_n1=0.0, Phi_n2=0.0, Phi_n3=0.0;
+		phi["MixedFMT"] = T * phiFMTuniform(n0, n1, n2, n3, Phi_n0, Phi_n1, Phi_n2, Phi_n3);
 		//Bonding corrections:
 		for(unsigned ic=0; ic<component.size(); ic++)
-		{	const Component& c = component[ic];
-			double grad_n0mol=0.0;
-			for(std::map<double,int>::iterator b=bond[ic].begin(); b!=bond[ic].end(); b++)
-				phi["Bonding"] += T * phiBondUniform(b->first, b->second*1.0/n0mult[ic],
-					n0mol[ic], n2, n3, grad_n0mol, grad_n2, grad_n3);
-			if(grad_n0mol)
+		{	const FluidComponent& c = *component[ic];
+			double Phi_n0mol=0.0;
+			for(const auto& b: bond[ic])
+				phi["Bonding"] += T * phiBondUniform(b.first, b.second*1.0/n0mult[ic],
+					n0mol[ic], n2, n3, Phi_n0mol, Phi_n2, Phi_n3);
+			if(Phi_n0mol)
 			{	//Propagate gradient w.r.t n0mol[ic] to the site densities:
-				for(int j=0; j<c.molecule->nIndices; j++)
-				{	const SiteProperties& s = *(c.indexedSite[j]);
-					if(s.sphereRadius)
-						grad_N[c.offsetDensity+j] += T * (s.w0->data[0]  * grad_n0mol);
+				for(unsigned i=0; i<c.molecule.sites.size(); i++)
+				{	const Molecule::Site& s = *(c.molecule.sites[i]);
+					if(s.Rhs) Phi_N[c.offsetDensity+i] += T * (s.w0.Gzero  * Phi_n0mol);
 				}
 			}
 		}
 		//Convert FMT weighted gradients to site density gradients:
-		for(std::vector<Component>::const_iterator c=component.begin(); c!=component.end(); c++)
-		{	for(int j=0; j<c->molecule->nIndices; j++)
-			{	const SiteProperties& s = *(c->indexedSite[j]);
-				if(s.sphereRadius)
-				{	double& grad_Nsite = grad_N[c->offsetDensity+j];
-					grad_Nsite += T * (s.w0->data[0]  * grad_n0);
-					grad_Nsite += T * (s.w1->data[0]  * grad_n1);
-					grad_Nsite += T * (s.w2->data[0]  * grad_n2);
-					grad_Nsite += T * (s.w3->data[0]  * grad_n3);
+		for(const FluidComponent* c: component)
+		{	for(unsigned i=0; i<c->molecule.sites.size(); i++)
+			{	const Molecule::Site& s = *(c->molecule.sites[i]);
+				if(s.Rhs)
+				{	double& Phi_Nsite = Phi_N[c->offsetDensity+i];
+					Phi_Nsite += T * (s.w0.Gzero  * Phi_n0);
+					Phi_Nsite += T * (s.w1.Gzero  * Phi_n1);
+					Phi_Nsite += T * (s.w2.Gzero  * Phi_n2);
+					Phi_Nsite += T * (s.w3.Gzero  * Phi_n3);
 				}
 			}
 		}
 	}
 
 	//---------- Excess functionals --------------
-	for(std::vector<Component>::const_iterator c=component.begin(); c!=component.end(); c++)
-		phi["Fex("+c->molecule->name+")"] += c->fex->computeUniform(&N[c->offsetDensity], &grad_N[c->offsetDensity]);
+	for(const FluidComponent* c: component)
+		phi["Fex("+c->molecule.name+")"] += c->fex->computeUniform(&N[c->offsetDensity], &Phi_N[c->offsetDensity]);
 
 	//--------- Mixing functionals --------------
-	for(std::vector<const Fmix*>::const_iterator fmix=fmixArr.begin(); fmix!=fmixArr.end(); fmix++)
-		phi["Fmix("+(*fmix)->getName()+")"] += (*fmix)->computeUniform(N, grad_N);
+	for(const Fmix* fmix: fmixArr)
+		phi["Fmix("+fmix->getName()+")"] += fmix->computeUniform(N, Phi_N);
 
 	//--------- Convert site density gradients to molecular density gradients ---------
 	for(unsigned ic=0; ic<component.size(); ic++)
-	{	const Component& c = component[ic];
-		grad_Nmol[ic] = 0.0;
-		for(int j=0; j<c.molecule->nSites; j++)
-			grad_Nmol[ic] += grad_N[c.offsetDensity + c.molecule->site[j].index];
+	{	const FluidComponent& c = *component[ic];
+		Phi_Nmol[ic] = 0.0;
+		for(unsigned i=0; i<c.molecule.sites.size(); i++)
+			Phi_Nmol[ic] += Phi_N[c.offsetDensity+i] * c.molecule.sites[i]->positions.size();;
 	}
 
 	//phi.print(gInfo.fpLog, true, "\t\t\t\t%15s = %12.4le\n"); //Uncomment when debugging to get contributions
-
 	return phi;
 }
 
 double FluidMixture::compute_p(double Ntot) const
-{	std::vector<double> Nmol(component.size()), grad_Nmol(component.size());
-	for(unsigned ic=0; ic<component.size(); ic++) Nmol[ic] = Ntot*component[ic].idealGas->xBulk;
+{	std::vector<double> Nmol(component.size()), Phi_Nmol(component.size());
+	double Nguess=0.;
+	for(const FluidComponent* c: component) Nguess += c->Nbulk;
+	for(unsigned ic=0; ic<component.size(); ic++) Nmol[ic] = (Ntot/Nguess)*component[ic]->Nbulk;
 	//p = N T + Sum_ic Nic d(aEx)/dNic - aEx where aEx is Helmholtz energy density
-	double p = Ntot*T - computeUniformEx(Nmol, grad_Nmol);
+	double p = Ntot*T - computeUniformEx(Nmol, Phi_Nmol);
 	for(unsigned ic=0; ic<component.size(); ic++)
-		p += Nmol[ic]*grad_Nmol[ic];
+		p += Nmol[ic]*Phi_Nmol[ic];
 	return p;
-}
-
-FluidMixture::ConvCouplingData::ConvCouplingData(const GridInfo& gInfo)
-{
-	nullToZero(nFluidTilde,gInfo);
-}
-
-FluidMixture::ConvCouplingData::~ConvCouplingData()
-{
 }

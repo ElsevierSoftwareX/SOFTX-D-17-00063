@@ -73,8 +73,8 @@ void IdealGasPsiAlpha::getDensities(const DataRptr* psi, DataRptr* N, vector3<>&
 	}
 }
 
-double IdealGasPsiAlpha::compute(const DataRptr* psi, const DataRptr* N, DataRptr* grad_N,
-	const vector3<>& P, vector3<>& grad_P, const double Nscale, double& grad_Nscale) const
+double IdealGasPsiAlpha::compute(const DataRptr* psi, const DataRptr* N, DataRptr* Phi_N,
+	const vector3<>& P, vector3<>& Phi_P, const double Nscale, double& Phi_Nscale) const
 {	double PhiNI = 0.0;
 	for(unsigned i=0; i<molecule.sites.size(); i++)
 	{	DataRptr PhiNI_Ni = T*psi[i] + V[i];
@@ -84,7 +84,7 @@ double IdealGasPsiAlpha::compute(const DataRptr* psi, const DataRptr* N, DataRpt
 			PhiNI -= T*integral(N[0]) * invSite0mult;
 		}
 		if(PhiNI_Ni)
-		{	grad_N[i] += PhiNI_Ni;
+		{	Phi_N[i] += PhiNI_Ni;
 			PhiNI += gInfo.dV*dot(N[i], PhiNI_Ni);
 		}
 	}
@@ -92,27 +92,27 @@ double IdealGasPsiAlpha::compute(const DataRptr* psi, const DataRptr* N, DataRpt
 }
 
 void IdealGasPsiAlpha::convertGradients(const DataRptr* psi, const DataRptr* N,
-	const DataRptr* grad_N, vector3<> grad_P, DataRptr* grad_psi, const double Nscale) const
+	const DataRptr* Phi_N, vector3<> Phi_P, DataRptr* Phi_psi, const double Nscale) const
 {
-	for(unsigned i=0; i<molecule.sites.size(); i++) grad_psi[i]=0;
+	for(unsigned i=0; i<molecule.sites.size(); i++) Phi_psi[i]=0;
 	//Loop over orientations:
 	for(int o=0; o<quad.nOrientations(); o++)
 	{	matrix3<> rot = matrixFromEuler(quad.euler(o));
-		DataRptr grad_N_o; //gradient w.r.t N_o (as calculated in getDensities)
-		//Collect the contributions from each grad_N in grad_N_o
+		DataRptr Phi_N_o; //gradient w.r.t N_o (as calculated in getDensities)
+		//Collect the contributions from each Phi_N in Phi_N_o
 		for(unsigned i=0; i<molecule.sites.size(); i++)
 			for(vector3<> pos: molecule.sites[i]->positions)
-				trans.taxpy(-rot*pos, 1., grad_N[i], grad_N_o);
+				trans.taxpy(-rot*pos, 1., Phi_N[i], Phi_N_o);
 		//Calculate N_o again (with Nscale this time):
 		DataRptr sum_psi;
 		for(unsigned i=0; i<molecule.sites.size(); i++)
 			for(vector3<> pos: molecule.sites[i]->positions)
 				trans.taxpy(-rot*pos, 1., psi[i], sum_psi);
 		DataRptr N_o = (quad.weight(o) * Nbulk * Nscale) * exp(sum_psi); //contribution from this orientation
-		//Accumulate N_o * grad_N_o into each grad_psi with appropriate translations:
-		DataRptr grad_psi_term = N_o * grad_N_o;
+		//Accumulate N_o * Phi_N_o into each Phi_psi with appropriate translations:
+		DataRptr Phi_psi_term = N_o * Phi_N_o;
 		for(unsigned i=0; i<molecule.sites.size(); i++)
 			for(vector3<> pos: molecule.sites[i]->positions)
-				trans.taxpy(rot*pos, 1., grad_psi_term, grad_psi[i]);
+				trans.taxpy(rot*pos, 1., Phi_psi_term, Phi_psi[i]);
 	}
 }

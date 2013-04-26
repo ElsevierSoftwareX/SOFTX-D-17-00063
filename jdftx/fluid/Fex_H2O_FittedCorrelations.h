@@ -30,8 +30,8 @@ public:
     virtual ~Fex_H2O_FittedCorrelations();
 	
 	double get_aDiel() const;
-	double compute(const DataGptr* Ntilde, DataGptr* grad_Ntilde) const;
-	double computeUniform(const double* N, double* grad_N) const;
+	double compute(const DataGptr* Ntilde, DataGptr* Phi_Ntilde) const;
+	double computeUniform(const double* N, double* Phi_N) const;
 private:
 	RadialFunctionG COO, COH, CHH, fex_gauss;
 };

@@ -21,12 +21,12 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/Fex_H2O_ScalarEOS_internal.h>
 
 __global__
-void Fex_H20_ScalarEOS_kernel(int nr, const double* Nbar, double* Aex, double* grad_Nbar, ScalarEOS_eval eval)
+void Fex_H20_ScalarEOS_kernel(int nr, const double* Nbar, double* Aex, double* Phi_Nbar, ScalarEOS_eval eval)
 {	int i = kernelIndex1D();
-	if(i<nr) eval(i, Nbar, Aex, grad_Nbar);
+	if(i<nr) eval(i, Nbar, Aex, Phi_Nbar);
 }
-void Fex_H20_ScalarEOS_gpu(int nr, const double* Nbar, double* Aex, double* grad_Nbar, ScalarEOS_eval eval)
+void Fex_H20_ScalarEOS_gpu(int nr, const double* Nbar, double* Aex, double* Phi_Nbar, ScalarEOS_eval eval)
 {	GpuLaunchConfig1D glc(Fex_H20_ScalarEOS_kernel, nr);
-	Fex_H20_ScalarEOS_kernel<<<glc.nBlocks, glc.nPerBlock>>>(nr, Nbar, Aex, grad_Nbar, eval);
+	Fex_H20_ScalarEOS_kernel<<<glc.nBlocks, glc.nPerBlock>>>(nr, Nbar, Aex, Phi_Nbar, eval);
 }
 

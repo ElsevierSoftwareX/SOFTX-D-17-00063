@@ -22,23 +22,19 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/Fex_LJ.h>
 #include <core/Units.h>
 #include <core/Operators.h>
-
-string rigidMoleculeCDFT_ScalarEOSpaper =  "R. Sundararaman and T.A. Arias, (to be submitted to Comp. Phys. Comm.)";
-
-static const double rOH = 1.0*Angstrom; 
-static const double thetaHOH = acos(-1.0/3); 
-//static const double rOH = 0.96719*Angstrom; //HACK WARNING
-//static const double thetaHOH = 1.8069; //103.53 degrees HACK WARNING
+#include <electronic/operators.h>
 
 Fex_H2O_ScalarEOS::Fex_H2O_ScalarEOS(const FluidMixture* fluidMixture, const FluidComponent* comp)
-: Fex(fluidMixture, comp),
-fex_LJatt(gInfo), eval(new ScalarEOS_eval(T)),
+: Fex(fluidMixture, comp), eval(new ScalarEOS_eval(T))
 {
 	//Initialize the kernels:
-	applyFuncGsq(gInfo, setCoulombCutoffKernel, siteChargeKernel.data); siteChargeKernel.set();
-	setLJatt(fex_LJatt, -9.0/(32*sqrt(2)*M_PI*pow(2*eval->sphereRadius,3)), 2*eval->sphereRadius);
-	Citations::add("Scalar-EOS water functional", rigidMoleculeCDFT_ScalarEOSpaper);
+	setLJatt(fex_LJatt, gInfo, -9.0/(32*sqrt(2)*M_PI*pow(2*eval->sphereRadius,3)), 2*eval->sphereRadius);
+	Citations::add("Scalar-EOS water functional", "R. Sundararaman and T.A. Arias, arXiv:1302.0026");
 }
+Fex_H2O_ScalarEOS::~Fex_H2O_ScalarEOS()
+{	fex_LJatt.free();
+}
+
 
 double Fex_H2O_ScalarEOS::get_aDiel() const
 {
@@ -47,27 +43,27 @@ double Fex_H2O_ScalarEOS::get_aDiel() const
 
 
 #ifdef GPU_ENABLED
-void Fex_H20_ScalarEOS_gpu(int nr, const double* Nbar, double* Fex, double* grad_Nbar, ScalarEOS_eval eval);
+void Fex_H20_ScalarEOS_gpu(int nr, const double* Nbar, double* Fex, double* Phi_Nbar, ScalarEOS_eval eval);
 #endif
-double Fex_H2O_ScalarEOS::compute(const DataGptr* Ntilde, DataGptr* grad_Ntilde) const
+double Fex_H2O_ScalarEOS::compute(const DataGptr* Ntilde, DataGptr* Phi_Ntilde) const
 {	//Compute LJatt weighted density:
-	DataRptr Nbar = I(Ntilde[0]*fex_LJatt), grad_Nbar; nullToZero(grad_Nbar, gInfo);
+	DataRptr Nbar = I(fex_LJatt*Ntilde[0]), Phi_Nbar; nullToZero(Phi_Nbar, gInfo);
 	//Evaluated weighted density functional:
 	DataRptr Aex(DataR::alloc(gInfo,isGpuEnabled()));
 	#ifdef GPU_ENABLED
-	Fex_H20_ScalarEOS_gpu(gInfo.nr, Nbar->dataGpu(), Aex->dataGpu(), grad_Nbar->dataGpu(), *eval);
+	Fex_H20_ScalarEOS_gpu(gInfo.nr, Nbar->dataGpu(), Aex->dataGpu(), Phi_Nbar->dataGpu(), *eval);
 	#else
-	threadedLoop(eval, gInfo.nr, Nbar->data(), Aex->data(), grad_Nbar->data());
+	threadedLoop(eval, gInfo.nr, Nbar->data(), Aex->data(), Phi_Nbar->data());
 	#endif
 	//Convert gradients:
 	DataRptr NO = I(Ntilde[0]);
-	grad_Ntilde[0] += fex_LJatt*Idag(NO*grad_Nbar) + Idag(Aex);
+	Phi_Ntilde[0] += fex_LJatt*Idag(NO*Phi_Nbar) + Idag(Aex);
 	return gInfo.dV*dot(NO,Aex);
 }
 
-double Fex_H2O_ScalarEOS::computeUniform(const double* N, double* grad_N) const
+double Fex_H2O_ScalarEOS::computeUniform(const double* N, double* Phi_N) const
 {	double AexPrime, Aex;
 	(*eval)(0, &N[0], &Aex, &AexPrime);
-	grad_N[0] += Aex + N[0]*AexPrime;	
+	Phi_N[0] += Aex + N[0]*AexPrime;	
 	return N[0]*Aex;
 }

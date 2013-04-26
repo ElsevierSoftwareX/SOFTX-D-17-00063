@@ -49,8 +49,8 @@ public:
 	}
 
     double get_aDiel() const {return 1.0; }
-    double compute(const DataGptr* Ntilde, DataGptr* grad_Ntilde) const { return 0.0; }
-    double computeUniform(const double* N, double* grad_N) const { return 0.0; }
+    double compute(const DataGptr* Ntilde, DataGptr* Phi_Ntilde) const { return 0.0; }
+    double computeUniform(const double* N, double* Phi_N) const { return 0.0; }
 };
 
 #endif //JDFTX_FLUID_FEX_HARDSPHEREION_H

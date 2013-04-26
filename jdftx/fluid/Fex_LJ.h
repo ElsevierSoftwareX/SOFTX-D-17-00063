@@ -41,8 +41,8 @@ public:
     virtual ~Fex_LJ();
 	
 	double get_aDiel() const { return 1.0; };
-	double compute(const DataGptr* Ntilde, DataGptr* grad_Ntilde) const;
-	double computeUniform(const double* N, double* grad_N) const;
+	double compute(const DataGptr* Ntilde, DataGptr* Phi_Ntilde) const;
+	double computeUniform(const double* N, double* Phi_N) const;
 private:
 	friend class Fmix_LJ; //allow Fmix_LJ to peek at eps and sigma to select coupling parameters
 	double eps, sigma;
@@ -59,8 +59,8 @@ public:
     virtual ~Fmix_LJ();
 	string getName() const;
 
-	double compute(const DataGptrCollection& Ntilde, DataGptrCollection& grad_Ntilde) const;
-	double computeUniform(const std::vector<double>& N, std::vector<double>& grad_N) const;
+	double compute(const DataGptrCollection& Ntilde, DataGptrCollection& Phi_Ntilde) const;
+	double computeUniform(const std::vector<double>& N, std::vector<double>& Phi_N) const;
 private:
 	const FluidComponent &fluid1, &fluid2;
 	RadialFunctionG ljatt;

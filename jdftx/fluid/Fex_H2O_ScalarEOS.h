@@ -26,13 +26,14 @@ class Fex_H2O_ScalarEOS : public Fex
 public:
 	//! Create water with the ScalarEOS functional (can choose soft or hard sphere version)
 	Fex_H2O_ScalarEOS(const FluidMixture*, const FluidComponent*);
-
+    virtual ~Fex_H2O_ScalarEOS();
+	
 	double get_aDiel() const;
-	double compute(const DataGptr* Ntilde, DataGptr* grad_Ntilde) const;
-	double computeUniform(const double* N, double* grad_N) const;
+	double compute(const DataGptr* Ntilde, DataGptr* Phi_Ntilde) const;
+	double computeUniform(const double* N, double* Phi_N) const;
 
 private:
-	RealKernel fex_LJatt;
+	RadialFunctionG fex_LJatt;
 	struct ScalarEOS_eval* eval;
 };
 

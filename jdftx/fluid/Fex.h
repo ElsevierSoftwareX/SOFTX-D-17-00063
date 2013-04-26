@@ -39,14 +39,14 @@ public:
 	virtual double get_aDiel() const=0; //! Return the correlation scale-factor for the coulomb term
 
 	//! Return the excess free energy given the reciprocal space site densities
-	//! and accumulate the gradient (functional derivative) w.r.t them in grad_Ntilde
-	virtual double compute(const DataGptr* Ntilde, DataGptr* grad_Ntilde) const=0;
+	//! and accumulate the gradient (functional derivative) w.r.t them in Phi_Ntilde
+	virtual double compute(const DataGptr* Ntilde, DataGptr* Phi_Ntilde) const=0;
 
 	//! Return the uniform fluid excess free energy density given the site densities N
-	//! and accumulate the derivative w.r.t them in grad_N. This MUST return the
+	//! and accumulate the derivative w.r.t them in Phi_N. This MUST return the
 	//! result corresponding to calling compute() with a uniform scalar field.
 	//! This is called several times during FluidMixture::setPressure() to get the desired bulk properties
-	virtual double computeUniform(const double* N, double* grad_N) const=0;
+	virtual double computeUniform(const double* N, double* Phi_N) const=0;
 };
 
 #endif // JDFTX_FLUID_FEX_H

@@ -61,7 +61,7 @@ FluidComponent::Type FluidComponent::getType(FluidComponent::Name name)
 FluidComponent::FluidComponent(FluidComponent::Name name, double T, FluidComponent::Functional functional)
 : name(name), type(getType(name)), functional(functional), representation(MuEps),
 s2quadType(S2_7design_24), quad_nAlpha(0), quad_nBeta(0), quad_nGamma(0), fourierTranslation(false),
-idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
+Nnorm(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 {
 	//Nuclear widths = (1./6) vdW radius
 	const double sigmaNucH = (1./6) * 1.20*Angstrom;

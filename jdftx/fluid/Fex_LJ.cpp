@@ -59,13 +59,13 @@ Fex_LJ::~Fex_LJ()
 {	ljatt.free();
 }
 
-double Fex_LJ::compute(const DataGptr* Ntilde, DataGptr* grad_Ntilde) const
+double Fex_LJ::compute(const DataGptr* Ntilde, DataGptr* Phi_Ntilde) const
 {	DataGptr V = gInfo.nr * (ljatt * Ntilde[0]);
-	grad_Ntilde[0] += V;
+	Phi_Ntilde[0] += V;
 	return 0.5*gInfo.dV*dot(V,Ntilde[0]);
 }
-double Fex_LJ::computeUniform(const double* N, double* grad_N) const
-{	grad_N[0] += ljatt.Gzero*N[0];
+double Fex_LJ::computeUniform(const double* N, double* Phi_N) const
+{	Phi_N[0] += ljatt.Gzero*N[0];
 	return 0.5*N[0]*ljatt.Gzero*N[0];
 }
 
@@ -82,20 +82,20 @@ string Fmix_LJ::getName() const
 {	return fluid1.molecule.name + "<->" + fluid2.molecule.name;
 }
 
-double Fmix_LJ::compute(const DataGptrCollection& Ntilde, DataGptrCollection& grad_Ntilde) const
+double Fmix_LJ::compute(const DataGptrCollection& Ntilde, DataGptrCollection& Phi_Ntilde) const
 {	unsigned i1 = fluid1.offsetDensity;
 	unsigned i2 = fluid2.offsetDensity;
 	DataGptr V1 = gInfo.nr * (ljatt * Ntilde[i1]);
 	DataGptr V2 = gInfo.nr * (ljatt * Ntilde[i2]);
-	grad_Ntilde[i1] += V2;
-	grad_Ntilde[i2] += V1;
+	Phi_Ntilde[i1] += V2;
+	Phi_Ntilde[i2] += V1;
 	return gInfo.dV*dot(V1,Ntilde[i2]);
 }
-double Fmix_LJ::computeUniform(const std::vector<double>& N, std::vector<double>& grad_N) const
+double Fmix_LJ::computeUniform(const std::vector<double>& N, std::vector<double>& Phi_N) const
 {	unsigned i1 = fluid1.offsetDensity;
 	unsigned i2 = fluid2.offsetDensity;
-	grad_N[i1] += ljatt.Gzero*N[i2];
-	grad_N[i2] += ljatt.Gzero*N[i1];
+	Phi_N[i1] += ljatt.Gzero*N[i2];
+	Phi_N[i2] += ljatt.Gzero*N[i1];
 	return N[i1]*ljatt.Gzero*N[i2];
 }
 

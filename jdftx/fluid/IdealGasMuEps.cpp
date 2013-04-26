@@ -86,56 +86,56 @@ void IdealGasMuEps::getDensities(const DataRptr* mueps, DataRptr* N, vector3<>& 
 	}
 }
 
-double IdealGasMuEps::compute(const DataRptr* mueps, const DataRptr* N, DataRptr* grad_N,
-	const vector3<>& P, vector3<>& grad_P, const double Nscale, double& grad_Nscale) const
+double IdealGasMuEps::compute(const DataRptr* mueps, const DataRptr* N, DataRptr* Phi_N,
+	const vector3<>& P, vector3<>& Phi_P, const double Nscale, double& Phi_Nscale) const
 {	double PhiNI = 0.0;
 	//Add contributions due to external potentials:
 	for(unsigned i=0; i<molecule.sites.size(); i++)
 		if(V[i])
-		{	grad_N[i] += V[i];
+		{	Phi_N[i] += V[i];
 			PhiNI += gInfo.dV*dot(N[i], V[i]);
 		}
 	//Contributions due to uniform electric field:
-	grad_P -= Eexternal;
+	Phi_P -= Eexternal;
 	PhiNI -= dot(Eexternal, P);
 	//KE and mu:
 	double invSite0mult = 1./molecule.sites[0]->positions.size();
-	grad_N[0] -= mu * invSite0mult;
+	Phi_N[0] -= mu * invSite0mult;
 	PhiNI -= (T+mu)*integral(N[0]) * invSite0mult;
-	//Entropy (this part deals with Nscale explicitly, so need to increment grad_Nscale):
-	grad_Nscale += T*S;
+	//Entropy (this part deals with Nscale explicitly, so need to increment Phi_Nscale):
+	Phi_Nscale += T*S;
 	PhiNI += Nscale*T*S;
 	return PhiNI;
 }
 
 void IdealGasMuEps::convertGradients(const DataRptr* mueps, const DataRptr* N,
-	const DataRptr* grad_N, vector3<> grad_P, DataRptr* grad_mueps, const double Nscale) const
-{	for(int k=0; k<4; k++) grad_mueps[k]=0;
+	const DataRptr* Phi_N, vector3<> Phi_P, DataRptr* Phi_mueps, const double Nscale) const
+{	for(int k=0; k<4; k++) Phi_mueps[k]=0;
 	//Loop over orientations:
 	for(int o=0; o<quad.nOrientations(); o++)
 	{	matrix3<> rot = matrixFromEuler(quad.euler(o));
 		vector3<> pVec = rot*vector3<>(0,0,1);
-		DataRptr grad_N_o; //gradient w.r.t N_o (as calculated in getDensities)
-		//Collect the contributions from each grad_N in grad_N_o
+		DataRptr Phi_N_o; //gradient w.r.t N_o (as calculated in getDensities)
+		//Collect the contributions from each Phi_N in Phi_N_o
 		for(unsigned i=0; i<molecule.sites.size(); i++)
 			for(vector3<> pos: molecule.sites[i]->positions)
-				trans.taxpy(-rot*pos, 1.0, grad_N[i], grad_N_o);
+				trans.taxpy(-rot*pos, 1.0, Phi_N[i], Phi_N_o);
 		//Collect the contributions the entropy:
-		grad_N_o += T*mueps[0];
+		Phi_N_o += T*mueps[0];
 		for(int k=0; k<3; k++)
-			grad_N_o += (T*pVec[k])*mueps[k+1];
-		//Collect the contribution from grad_P:
-		grad_N_o += dot(grad_P, pVec);
+			Phi_N_o += (T*pVec[k])*mueps[k+1];
+		//Collect the contribution from Phi_P:
+		Phi_N_o += dot(Phi_P, pVec);
 		//Calculate N_o again:
 		DataRptr sum_mueps;
 		sum_mueps += mueps[0];
 		for(int k=0; k<3; k++)
 			sum_mueps += pVec[k]*mueps[k+1];
 		DataRptr N_o = (quad.weight(o) * Nbulk * Nscale) * exp(sum_mueps);
-		//Accumulate N_o * grad_N_o into each component of grad_mueps with appropriate weights:
-		DataRptr grad_mueps_term = N_o * grad_N_o;
-		grad_mueps[0] += grad_mueps_term;
+		//Accumulate N_o * Phi_N_o into each component of Phi_mueps with appropriate weights:
+		DataRptr Phi_mueps_term = N_o * Phi_N_o;
+		Phi_mueps[0] += Phi_mueps_term;
 		for(int k=0; k<3; k++)
-			grad_mueps[k+1] += pVec[k] * grad_mueps_term;
+			Phi_mueps[k+1] += pVec[k] * Phi_mueps_term;
 	}
 }
