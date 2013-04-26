@@ -56,6 +56,7 @@ struct Molecule
 	
 	void setup(const GridInfo& gInfo);
 	
+	bool isMonoatomic() const; //!< whether it is a monoatomic molecule
 	double getCharge() const; //!< total charge on molecule
 	vector3<> getDipole() const; //!< total dipole moment on molecule
 	std::map<double,int> getBonds() const; //!< get the harmonic sum of radii for spheres in contact, with the multiplicities for each such pair

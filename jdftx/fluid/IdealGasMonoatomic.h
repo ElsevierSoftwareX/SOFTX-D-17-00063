@@ -27,7 +27,7 @@ class IdealGasMonoatomic : public IdealGas
 {
 public:
 	//!Initialize and associate with excess functional fex (and its fluid mixture)
-	IdealGasMonoatomic(Fex* fex, double xBulk);
+	IdealGasMonoatomic(const FluidMixture*, const FluidComponent*);
 
 	void initState(const DataRptr* Vex, DataRptr* psi, double scale, double Elo, double Ehi) const;
 	void getDensities(const DataRptr* psi, DataRptr* N, vector3<>& P) const;

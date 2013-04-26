@@ -25,47 +25,15 @@ class Fex_H2O_ScalarEOS : public Fex
 {
 public:
 	//! Create water with the ScalarEOS functional (can choose soft or hard sphere version)
-	Fex_H2O_ScalarEOS(FluidMixture& fluidMixture);
+	Fex_H2O_ScalarEOS(const FluidMixture*, const FluidComponent*);
 
-	const Molecule* getMolecule() const { return &molecule; }
 	double get_aDiel() const;
 	double compute(const DataGptr* Ntilde, DataGptr* grad_Ntilde) const;
 	double computeUniform(const double* N, double* grad_N) const;
 
-protected: //Kendra: NOTE: changed these to protected to allow Fex_H2O_Custom to access these variables (but not modify them)
-		   //If preferable, I can write get functions, but that seemed a little unnecessary.
-	RealKernel fex_LJatt, siteChargeKernel;
+private:
+	RealKernel fex_LJatt;
 	struct ScalarEOS_eval* eval;
-	
-private:
-	SiteProperties propO;
-	SiteProperties propH;
-	Molecule molecule;
-};
-
-class Fex_H2O_Custom : public Fex_H2O_ScalarEOS
-{
-public:
-	//! Create customizable water with the ScalarEOS functional (can choose soft or hard sphere version)
-	Fex_H2O_Custom(FluidMixture& fluidMixture, std::vector<H2OSite>& H2OSites);
-	
-	const Molecule* getMolecule() const { return &customMolecule; }
-	double get_aDiel() const;
-	
-	~Fex_H2O_Custom()
-	{
-		for (unsigned i=0; i < prop.size(); i++)
-		{
-			delete prop[i];
-		}
-	}
-
-	
-private:
-	std::vector<SiteProperties*> prop;
-	std::vector<std::vector<vector3<>>> pos;
-	Molecule customMolecule;
-	double aDielFactor;
 };
 
 

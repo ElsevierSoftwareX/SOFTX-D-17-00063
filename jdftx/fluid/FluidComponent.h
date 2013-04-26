@@ -57,24 +57,24 @@ struct FluidComponent
 		FittedCorrelations, //!< H2O functional from [J. Lischner and T. A. Arias, J. Phys. Chem. B 114, 1946 (2010)] (DEPRECATED)
 		BondedVoids, //!< H2O functional from [R. Sundararaman, K. Letchworth-Weaver and T.A. Arias, J. Chem. Phys. 137, 044107 (2012)]
 		MeanFieldLJ //!< Hard sphere + mean field Lennard-Jones perturbation (useful for ions in solution)
-	}
-	functional;
+	};
+	const Functional functional;
 	
 	//!Ideal gas representation (does not affect simple fluids which always use IdealGasMonoatomic)
 	enum Representation
 	{	Pomega, //!< directly work with orientation probability density
 		PsiAlpha, //!< site-potential representation
-		MuEps //!< multipole density representation truncated at l=1
+		MuEps //!< multipole density representation truncated at l=1 (default)
 	}
 	representation;
 	
-	S2quadType s2quadType; //!< Quadrature on S2 that generates the SO(3) quadrature
+	S2quadType s2quadType; //!< Quadrature on S2 that generates the SO(3) quadrature (default: 7design24)
 	unsigned quad_nBeta, quad_nAlpha, quad_nGamma; //!< Subdivisions for euler angle outer-product quadrature
-
+	bool fourierTranslation; //!< whether to use fourier translation (default: false)
 	
 	//Bulk solvent properties (used by various PCM's):
 	double epsBulk; //!< bulk dielectric constant
-	double Nbulk; //!< bulk number-density of molecules in bohr^-3
+	double Nbulk; //!< bulk number-density of molecules in bohr^-3 (used as initial guess in mixtures)
 	double pMol; //!< dipole moment of each molecule in e-bohr
 	double epsInf; //!< optical-frequency dielectric constant
 	double Pvap; //!< vapor pressure in Eh/bohr^3
@@ -85,7 +85,14 @@ struct FluidComponent
 	//Molecule geometry and site properties:
 	Molecule molecule;
 	
-	FluidComponent(Name name, double T); //!< set default properties
+	FluidComponent(Name name, double T, Functional functional); //!< set default properties
+	
+	//Extra properties when participating in a classical density functional FluidMixture:
+	std::shared_ptr<class IdealGas*> idealGas; //!< Indep <-> Density converter and entropy calculator
+	std::shared_ptr<class Fex*> fex; //!< Excess functional (in excess to sphere mixture and long-range)
+	unsigned offsetIndep; //!< Offset to the independent variables of this component
+	unsigned offsetDensity; //!< Offset to the site densities that belong to this component
+	void addToFluidMixture(class FluidMixture* fluidMixture); //!< Initialize fex, idealGas and register with fluidMixture
 };
 
 #endif // JDFTX_FLUID_FLUIDCOMPONENT_H

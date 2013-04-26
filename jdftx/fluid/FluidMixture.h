@@ -20,7 +20,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef JDFTX_FLUID_FLUIDMIXTURE_H
 #define JDFTX_FLUID_FLUIDMIXTURE_H
 
-#include <fluid/IdealGas.h>
+#include <fluid/FluidComponent.h>
 #include <fluid/Fmix.h>
 #include <core/Units.h>
 #include <core/Minimize.h>
@@ -48,19 +48,6 @@ public:
 	unsigned get_nIndep() const { return nIndep; }  //!< get the number of scalar fields used as independent variables
 	unsigned get_nDensities() const { return nDensities; } //!< get the total number of site densities
 
-	unsigned get_offsetDensity(const Fex* fex) const; //!< get the offset for the site densities for a particular component in the fluid
-
-	//! One component of the fluid mixture
-	struct Component
-	{	IdealGas* idealGas; //!< Indep <-> Density converter and entropy calculator
-		const Fex* fex; //!< Excess functional (in excess to sphere mixture and long-range)
-		const Molecule* molecule; //!< Molecule geometry etc.
-		unsigned offsetIndep; //!< Offset to the independent variables of this component
-		unsigned offsetDensity; //!< Offset to the site densities that belong to this component
-		std::vector<SiteProperties*> indexedSite; //!< site properties indexed by density index
-		std::vector<int> indexedSiteMultiplicity; //!< number of sites at each index
-	};
-
 	//! structure which contains information calculated by FluidMixture and needed by ConvCoupling
 	struct ConvCouplingData
 	{
@@ -72,7 +59,7 @@ public:
 	ConvCouplingData* ConvCouplingPtr;
 	
 	unsigned get_nComponents() const; //!< get number of components
-	const Component& get_component(unsigned c) const; //!< get component number c
+	const FluidComponent& get_component(unsigned c) const; //!< get component number c
 	DataRptrCollection state;
 
 	//! External charge density.
@@ -129,11 +116,11 @@ private:
 	unsigned nDensities; //!< total number of site densities
 	double p;
 
-	std::vector<Component> component; //!< array of fluid components
+	std::vector<const FluidComponent*> component; //!< array of fluid components
 	std::vector<const Fmix*> fmixArr; //!< array of mixing functionals
 
-	void addComponent(IdealGas* idealGas, const Fex* fex); //!< Called by IdealGas::IdealGas() to add a component
-	friend class IdealGas;
+	void addComponent(FluidComponent*); //!< Called by FluidComponent::addToFluidMixture() to add a component
+	friend class FluidComponent;
 
 	void addFmix(const Fmix* fmix); //!< Called by Fmix::Fmix() to add a mixing functional
 	friend class Fmix;

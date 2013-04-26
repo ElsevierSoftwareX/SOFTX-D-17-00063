@@ -20,11 +20,10 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/IdealGas.h>
 #include <fluid/FluidMixture.h>
 
-IdealGas::IdealGas(int nIndep, Fex* fex, double xBulk)
-: nIndep(nIndep), molecule(fex->getMolecule()),
-fluidMixture(fex->fluidMixture), gInfo(fluidMixture.gInfo), T(fluidMixture.T), V(molecule->nIndices),
-xBulk(xBulk), Nnorm(0), Nbulk(0), mu(0)
-{	fluidMixture.addComponent(this, fex);
+IdealGas::IdealGas(int nIndep, const FluidMixture* fluidMixture, const FluidComponent* comp)
+: nIndep(nIndep), molecule(comp->molecule), gInfo(fluidMixture->gInfo), T(fluidMixture->T),
+V(molecule.sites.size()), xBulk(comp->Nbulk), Nnorm(0), Nbulk(0), mu(0)
+{
 }
 
 double IdealGas::get_Nbulk()

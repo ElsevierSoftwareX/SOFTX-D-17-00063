@@ -23,21 +23,18 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/Molecule.h>
 #include <core/Data.h>
 class FluidMixture;
+class FluidComponent;
 
 //! Abstract base class for excess functionals
 class Fex
 {
 public:
-	FluidMixture& fluidMixture;
+	const Molecule& molecule;
 	const GridInfo& gInfo;
 	const double T;
 
-	//! Initialize base for use with this fluidMixture
-	Fex(FluidMixture& fluidMixture);
+	Fex(const FluidMixture*, const FluidComponent*);
 	virtual ~Fex() {}
-
-	//! Return the underlying molecule speicfication (MUST be the same reference and value each time it's called)
-	virtual const Molecule* getMolecule() const=0;
 
 	virtual double get_aDiel() const=0; //! Return the correlation scale-factor for the coulomb term
 

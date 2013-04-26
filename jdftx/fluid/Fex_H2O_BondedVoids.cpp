@@ -24,26 +24,14 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/Fex_H2O_ScalarEOS_internal.h>
 
 //EOS functional fit parameters:
-const double RV0 = 1.290*Angstrom;
-const double TV = 258.7*Kelvin;
-const double kappa = 1.805e5*Kelvin*pow(Angstrom,3);
-const double RO = 1.419*Angstrom;
-const double sigmaU = 2.62*Angstrom;
+const double Fex_H2O_BondedVoids::RV0 = 1.290*Angstrom;
+const double Fex_H2O_BondedVoids::TV = 258.7*Kelvin;
+const double Fex_H2O_BondedVoids::kappa = 1.805e5*Kelvin*pow(Angstrom,3);
+const double Fex_H2O_BondedVoids::RO = 1.419*Angstrom;
+const double Fex_H2O_BondedVoids::sigmaU = 2.62*Angstrom;
 
-//SPC/E O-H length
-const double rOH = 1.0*Angstrom;
-
-Fex_H2O_BondedVoids::Fex_H2O_BondedVoids(FluidMixture& fluidMixture)
-: Fex(fluidMixture),
-RV(RV0*exp(-T/TV)),
-siteChargeKernel(gInfo), Ua(gInfo),
-propO(gInfo,  RO,0.0, +0.8476,&siteChargeKernel),
-propH(gInfo, 0.0,0.0, -0.4238,&siteChargeKernel),
-propV(gInfo,  RV,0.0, 0,0),
-molecule("H2O",
-		&propO, vector3<>(0,0,0),
-		&propH, vector3<>(-1,-1,1)*(rOH/sqrt(3)), vector3<>(+1,+1,+1)*(rOH/sqrt(3)),
-		&propV, vector3<>(+1,+1,-1)*((RO+RV)/sqrt(3)), vector3<>(-1,-1,-1)*((RO+RV)/sqrt(3)) )
+Fex_H2O_BondedVoids::Fex_H2O_BondedVoids(const FluidMixture* fluidMixture, const FluidComponent* comp)
+: Fex(fluidMixture, comp), Ua(gInfo)
 {
 	//Initialize the kernels: 
 	applyFuncGsq(gInfo, setCoulombCutoffKernel, siteChargeKernel.data); siteChargeKernel.set();

@@ -25,7 +25,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 extern string rigidMoleculeCDFT_ScalarEOSpaper;
 
 FluidMixture::FluidMixture(const GridInfo& gInfo, const double T)
-:gInfo(gInfo),T(T),verboseLog(false),ConvCouplingPtr(0),Qtol(1e-12),d0calc(0),nIndep(0),nDensities(0)
+:gInfo(gInfo),T(T),verboseLog(false),ConvCouplingPtr(0),Qtol(1e-12),nIndep(0),nDensities(0)
 {	logPrintf("Initializing fluid mixture at T=%lf K ...\n", T/Kelvin);
 	Citations::add("Rigid-molecule density functional theory framework", rigidMoleculeCDFT_ScalarEOSpaper);
 }
@@ -106,18 +106,14 @@ const FluidMixture::Component& FluidMixture::get_component(unsigned int c) const
 }
 
 
-void FluidMixture::addComponent(IdealGas* idealGas, const Fex* fex)
-{	Component comp = {idealGas, fex, fex->getMolecule(), nIndep, nDensities};
-	comp.indexedSite.resize(comp.molecule->nIndices);
-	comp.indexedSiteMultiplicity.resize(comp.molecule->nIndices);
-	for(int i=0; i<comp.molecule->nSites; i++)
-	{	comp.indexedSite[comp.molecule->site[i].index] = comp.molecule->site[i].prop;
-		comp.indexedSiteMultiplicity[comp.molecule->site[i].index]++;
-	}
-	component.push_back(comp);
+void FluidMixture::addComponent(const FluidComponent* comp)
+{	component.push_back(comp);
+	//Set the offsets for this component:
+	comp->offsetIndep = nIndep;
+	comp->offsetDensity = nDensities;
 	//Update the totals, which become the offset for the next component
-	nIndep += idealGas->nIndep;
-	nDensities += comp.molecule->nIndices;
+	nIndep += comp->idealGas->nIndep;
+	nDensities += comp->molecule.sites.size();
 }
 
 void FluidMixture::addFmix(const Fmix* fmix)

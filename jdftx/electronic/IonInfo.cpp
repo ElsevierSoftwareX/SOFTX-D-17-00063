@@ -45,20 +45,6 @@ void IonInfo::setup(const Everything &everything)
 
 	logPrintf("\n---------- Setting up pseudopotentials ----------\n");
 		
-	//Determine maximum G extents for local and non-local pseudopotentials:
-	GmaxNL = sqrt(2.0*e->cntrl.Ecut);
-	GmaxLoc = 0.0;
-	vector3<int> c;
-	for(c[0]=-1; c[0]<=1; c[0]+=2) for(c[1]=-1; c[1]<=1; c[1]+=2) for(c[2]=-1; c[2]<=1; c[2]+=2)
-	{	vector3<> f; for(int k=0; k<3; k++) f[k] = c[k]*(e->gInfo.S[k]/2);
-		double G = sqrt(e->gInfo.GGT.metric_length_squared(f));
-		if(G>GmaxLoc) GmaxLoc=G;
-	}
-	if(e->latticeMinParams.nIterations)
-	{	GmaxNL *= 2.;
-		GmaxLoc *= 2;
-	}
-	
 	//Choose width of the nuclear gaussian:
 	switch(ionWidthMethod)
 	{	case IonWidthManual: break; //manually specified value

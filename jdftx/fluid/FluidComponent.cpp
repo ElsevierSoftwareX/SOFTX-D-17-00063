@@ -20,6 +20,8 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <electronic/symbols.h>
 #include <fluid/FluidComponent.h>
 #include <fluid/Fex_H2O_ScalarEOS_internal.h>
+#include <fluid/Fex_H2O_BondedVoids.h>
+#include "FluidMixture.h"
 
 //! Vapor pressure from the Antoine equation
 //! @param T temperature (in a.u.)
@@ -56,7 +58,10 @@ FluidComponent::Type FluidComponent::getType(FluidComponent::Name name)
 }
 
 
-FluidComponent::FluidComponent(FluidComponent::Name name, double T) : name(name), type(getType(name))
+FluidComponent::FluidComponent(FluidComponent::Name name, double T, FluidComponent::Functional functional)
+: name(name), type(getType(name)), functional(functional), representation(MuEps),
+s2quadType(S2_7design_24), quad_nAlpha(0), quad_nBeta(0), quad_nGamma(0), fourierTranslation(false),
+idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 {
 	//Nuclear widths = (1./6) vdW radius
 	const double sigmaNucH = (1./6) * 1.20*Angstrom;
@@ -87,11 +92,33 @@ FluidComponent::FluidComponent(FluidComponent::Name name, double T) : name(name)
 				siteH->alpha = 3.30; siteH->aPol = 0.39;
 			molecule.sites.push_back(siteH);
 			//Geometry:
-			const double rOH = 1.0*Angstrom;
-			const double thetaHOH = acos(-1.0/3);
+			const double rOH = 0.967*Angstrom;
+			const double thetaHOH = 104.2 * M_PI/180;
 			siteO->positions.push_back(vector3<>(0.,0.,0.));
 			siteH->positions.push_back(vector3<>(0, -rOH*sin(0.5*thetaHOH), rOH*cos(0.5*thetaHOH)));
 			siteH->positions.push_back(vector3<>(0, +rOH*sin(0.5*thetaHOH), rOH*cos(0.5*thetaHOH)));
+			//Functional dependent options:
+			switch(functional)
+			{	case FittedCorrelations:
+					break;
+				case ScalarEOS:
+					siteO->Rhs = ScalarEOS_eval(T).sphereRadius;
+					break;
+				case BondedVoids: 
+				{	siteO->Rhs = Fex_H2O_BondedVoids::RO;
+					//Add void sites:
+					auto siteV = std::make_shared<Molecule::Site>("V");
+					molecule.sites.push_back(siteV);
+					siteV->Rhs = Fex_H2O_BondedVoids::RV0 * exp(-T/Fex_H2O_BondedVoids::TV);
+					const double rOV = siteO->Rhs + siteV->Rhs;
+					const double thetaVOV = acos(-1./3);
+					siteV->positions.push_back(vector3<>(-rOV*sin(0.5*thetaVOV), 0, -rOV*cos(0.5*thetaVOV)));
+					siteV->positions.push_back(vector3<>(+rOV*sin(0.5*thetaVOV), 0, -rOV*cos(0.5*thetaVOV)));
+					break;
+				}
+				default:
+					die("Unsupported excess functional for water.\n");
+			}
 			break;
 		}
 		case CHCl3:
@@ -208,4 +235,11 @@ FluidComponent::FluidComponent(FluidComponent::Name name, double T) : name(name)
 		default:
 			die("Not yet implemented.\n");
 	}
+}
+
+void FluidComponent::addToFluidMixture(FluidMixture* fluidMixture)
+{	assert(!idealGas);
+	assert(!fex);
+	//Initialize excess functional:
+	
 }

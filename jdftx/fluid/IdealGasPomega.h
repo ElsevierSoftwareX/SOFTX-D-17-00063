@@ -32,7 +32,7 @@ public:
 
 	//!Initialize and associate with excess functional fex (and its fluid mixture)
 	//!Also specify the orientation quadrature and translation operator used for the orientation integrals
-	IdealGasPomega(Fex* fex, double xBulk, const SO3quad& quad, const TranslationOperator& trans);
+	IdealGasPomega(const FluidMixture*, const FluidComponent*, const SO3quad& quad, const TranslationOperator& trans);
 
 	void initState(const DataRptr* Vex, DataRptr* logPomega, double scale, double Elo, double Ehi) const;
 	void getDensities(const DataRptr* logPomega, DataRptr* N, vector3<>& P) const;
@@ -44,8 +44,8 @@ public:
 private:
 	const SO3quad& quad; //!< quadrature for orientation integral
 	const TranslationOperator& trans; //!< translation operator for orientation integral
-	int site0mult; //!< multiplicity of the first site
 	double S; //!< cache the entropy, because it is most efficiently computed during getDensities()
+	vector3<> pMol; //!< molecule dipole moment in reference frame
 };
 
 #endif // JDFTX_FLUID_IDEALGASPOMEGA_H

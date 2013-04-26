@@ -24,17 +24,10 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 
 struct HardSphereIon
 {
-	string name; //!< name of the hard sphere ion  
-	double Z; //!< site charge on the ion in electrons. Total electronic charge is Znuc + Z 
-	double rHS; //!< hard sphere radius 
-	double Concentration; //!< concentration in Mol/L
 	double Esolv; //!< mixing parameter with H2O: depth of interaction potential in hartree
 	double Rsolv; //!< mixing parameter with H2O; width of gaussian kernel interaction potential in bohr
 	bool MixFunc; //!< True if hard sphere mixes with water
-	double Znuc; //!< Nuclear charge of ion in coupling functional electron density model
-	double CouplingWidth; //!< Exponential width of electron density model in convolution coupling
-	string CouplingFilename; //!< Filename to specify electron density model for convolution coupling
-	ConvolutionCouplingSiteModel convCouplingModel; //!<True if hard sphere couples to electrons through convolution coupling
+
 	Fex* fex;
 	IdealGas* idgas;
 	Fmix* fmix;
@@ -55,15 +48,9 @@ public:
 		initGaussianKernel(Qkernel, Ion->rHS);
 	}
 
-    const Molecule* getMolecule() const { return &molecule; }
     double get_aDiel() const {return 1.0; }
     double compute(const DataGptr* Ntilde, DataGptr* grad_Ntilde) const { return 0.0; }
     double computeUniform(const double* N, double* grad_N) const { return 0.0; }
-
-private:
-	RealKernel Qkernel;
-	SiteProperties prop;
-	Molecule molecule;
 };
 
 #endif //JDFTX_FLUID_FEX_HARDSPHEREION_H

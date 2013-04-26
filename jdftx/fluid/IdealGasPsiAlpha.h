@@ -30,7 +30,7 @@ class IdealGasPsiAlpha : public IdealGas
 public:
 	//!Initialize and associate with excess functional fex (and its fluid mixture)
 	//!Also specify the orientation quadrature and translation operator used for the orientation integrals
-	IdealGasPsiAlpha(Fex* fex, double xBulk, const SO3quad& quad, const TranslationOperator& trans);
+	IdealGasPsiAlpha(const FluidMixture*, const FluidComponent*, const SO3quad& quad, const TranslationOperator& trans);
 
 	void initState(const DataRptr* Vex, DataRptr* psi, double scale, double Elo, double Ehi) const;
 	void getDensities(const DataRptr* psi, DataRptr* N, vector3<>& P) const;
@@ -42,10 +42,6 @@ public:
 private:
 	const SO3quad& quad; //!< quadrature for orientation integral
 	const TranslationOperator& trans; //!< translation operator for orientation integral
-	std::vector<int> siteToIndep; //!< index of independent variable by site number
-	std::vector<int> densityToIndep; //!< index of independent variable by site density index
-	std::vector<int> indepMult; //!< multiplicity (number of sites) of each independent variable
-	int indepMultTot; //!< sum of multiplicities of indep (i.e. number of real sites on molecule)
 };
 
 #endif // JDFTX_FLUID_IDEALGASPSIALPHA_H

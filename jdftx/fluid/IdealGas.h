@@ -20,19 +20,17 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef JDFTX_FLUID_IDEALGAS_H
 #define JDFTX_FLUID_IDEALGAS_H
 
-#include <fluid/Fex.h>
+#include <fluid/Molecule.h>
 #include <core/DataCollection.h>
-#include <float.h>
-
 class FluidMixture;
+class FluidComponent;
 
 //! Abstract base class for an IdealGas evaluator
 class IdealGas
 {
 public:
 	const int nIndep; //!< Number of scalar fields used as independent variables
-	const Molecule *const molecule; //!< Associated molecule geometry
-	FluidMixture& fluidMixture; //!< Fluid mixture that this has been registered with
+	const Molecule& molecule; //!< Associated molecule geometry
 	const GridInfo& gInfo; //!< grid specifications
 	const double T; //!< temperature
 
@@ -41,7 +39,7 @@ public:
 	//! Initialize and register to be used with excess functional fex in its fluidMixture
 	//! xBulk is the mole fraction of this component in the bulk
 	//! (If all the mole fractions don't add to 1, they will be normalized to do so)
-	IdealGas(int nIndep, Fex* fex, double xBulk);
+	IdealGas(int nIndep, const FluidMixture*, const FluidComponent*);
 	virtual ~IdealGas() {}
 
 	//! Create an initial guess for the indep, in presence of V and the extra potential Vex
@@ -50,7 +48,7 @@ public:
 	//! This would also be a good place to logPrintf useful statistics about the potential for debugging
 	virtual void initState(const DataRptr* Vex, DataRptr* indep, double scale, double Elo=-DBL_MAX, double Ehi=+DBL_MAX) const=0;
 
-	//! Given the independent variables indep, compute the site densities N and the cell dipole moment P (not electric, orientation moment)
+	//! Given the independent variables indep, compute the site densities N and the cell dipole moment P
 	virtual void getDensities(const DataRptr* indep, DataRptr* N, vector3<>& P) const=0;
 
 	//! Return the ideal gas free energy PhiNI = T Int N - T S + (V-mu).N (where S is implementation dependent)
@@ -63,7 +61,7 @@ public:
 		const vector3<>& P, vector3<>& grad_P, const double Nscale, double& grad_Nscale) const=0;
 
 	//! Compute grad_indep, the total gradients w.r.t indep, given th egradients of the entire
-	//! functional w.r.t site densities, grad_N,  and total cell dipole (orientation, not electric) moment grad_P.
+	//! functional w.r.t site densities, grad_N,  and total cell dipole moment grad_P.
 	//! Nscale will be the same as in compute()
 	virtual void convertGradients(const DataRptr* indep, const DataRptr* N,
 		const DataRptr* grad_N, vector3<> grad_P, DataRptr* grad_indep, const double Nscale) const=0;

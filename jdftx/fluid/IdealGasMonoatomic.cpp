@@ -20,9 +20,8 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/IdealGasMonoatomic.h>
 #include <core/BlasExtra.h>
 
-IdealGasMonoatomic::IdealGasMonoatomic(Fex* fex, double xBulk): IdealGas(1,fex,xBulk)
-{	assert(molecule->nSites==1); //IdealGasMonoatomic must be used only with single site molecules.
-	assert(molecule->site[0].pos==vector3<>(0,0,0)); //The single site for IdealGasMonoatomic must be the origin
+IdealGasMonoatomic::IdealGasMonoatomic(const FluidMixture* fluidMixture, const FluidComponent* comp): IdealGas(1,fluidMixture,comp)
+{	assert(molecule.isMonoatomic()); //IdealGasMonoatomic must be used only with single site molecules.
 }
 
 void IdealGasMonoatomic::initState(const DataRptr* Vex, DataRptr* psi, double scale, double Elo, double Ehi) const
@@ -33,7 +32,7 @@ void IdealGasMonoatomic::initState(const DataRptr* Vex, DataRptr* psi, double sc
 	double Emin, Emax, Emean = sum(Veff)/gInfo.nr;
 	callPref(eblas_capMinMax)(gInfo.nr, Veff->dataPref(), Emin, Emax, Elo, Ehi);
 	logPrintf("\tIdealGasMonoatomic[%s] single molecule energy: min = %le, max = %le, mean = %le\n",
-		   molecule->name.c_str(), Emin, Emax, Emean);
+		   molecule.name.c_str(), Emin, Emax, Emean);
 	//Set state:
 	psi[0] = (-scale/T)*Veff;
 }

@@ -58,11 +58,15 @@ void Molecule::setup(const GridInfo& gInfo)
 }
 
 
+bool Molecule::isMonoatomic() const
+{	return (sites.size()==1) && (sites[0]->positions.size()==1);
+}
+
 double Molecule::getCharge() const
 {	double Q = 0.0;
 	for(const auto& site: sites)
 		if(site->chargeKernel)
-			Q += site->chargeKernel.Gzero * site->positons.size();
+			Q += site->chargeKernel.Gzero * site->positions.size();
 	return Q;
 }
 
@@ -70,7 +74,7 @@ vector3<> Molecule::getDipole() const
 {	vector3<> P;
 	for(const auto& site: sites)
 		if(site->chargeKernel)
-			for(const vector3<>& r: site->positons)
+			for(const vector3<>& r: site->positions)
 				P += site->chargeKernel.Gzero * r;
 	return P;
 }
@@ -79,12 +83,13 @@ std::map<double,int> Molecule::getBonds() const
 {	std::map<double,int> bond;
 	for(const auto& site1: sites)
 	{	double R1 = site1->Rhs;
-		if(R1) for(vector3<> pos1: site1->positons)
+		if(R1) for(vector3<> pos1: site1->positions)
 		{	for(const auto& site2: sites)
-			double R2 = site2->Rhs;
-			if(R2) for(vector3<> pos2: site2->positons)
-			{	if(fabs(R1+R2-(pos1-pos2).length()) < 1e-6*(R1+R2))
-					bond[R1*R2/(R1+R2)]++;
+			{	double R2 = site2->Rhs;
+				if(R2) for(vector3<> pos2: site2->positions)
+				{	if(fabs(R1+R2-(pos1-pos2).length()) < 1e-6*(R1+R2))
+						bond[R1*R2/(R1+R2)]++;
+				}
 			}
 		}
 	}
