@@ -83,10 +83,10 @@ namespace ShapeFunction
 //------------- Helper classes for NonlinearPCM  -------------
 namespace NonlinearPCMeval
 {
-	Screening::Screening(bool linear, double T, double Nion, double Zion, double Rplus, double Rminus, double epsBulk)
+	Screening::Screening(bool linear, double T, double Nion, double Zion, double VhsPlus, double VhsMinus, double epsBulk)
 	: linear(linear), NT(Nion*T), NZ(Nion*Zion),
-	x0plus(Nion * (4.*M_PI/3)*pow(Rplus,3)),
-	x0minus(Nion * (4.*M_PI/3)*pow(Rminus,3)),
+	x0plus(Nion * VhsPlus),
+	x0minus(Nion * VhsMinus),
 	x0(x0plus + x0minus)
 	{
 		if(x0 >= 1.) die("Bulk ionic concentration exceeds hard sphere limit = %lg mol/liter.\n", (Nion/x0) / (mol/liter));

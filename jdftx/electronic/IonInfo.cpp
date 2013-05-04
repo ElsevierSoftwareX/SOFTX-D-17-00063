@@ -24,6 +24,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <electronic/ExCorr.h>
 #include <electronic/ColumnBundle.h>
 #include <electronic/VanDerWaals.h>
+#include <electronic/FluidSolver.h>
 #include <cstdio>
 #include <cmath>
 #include <core/Units.h>
@@ -73,8 +74,7 @@ void IonInfo::setup(const Everything &everything)
 	if(not checkPositions())
 		die("\nAtoms are too close, have overlapping pseudopotential cores.\n\n");
 	
-	if(ionWidth && (e->eVars.fluidParams.fluidType != FluidNone) &&
-		(e->eVars.fluidParams.ionicConcentration || e->eVars.fluidParams.hSIons.size()))
+	if(ionWidth && (e->eVars.fluidParams.fluidType != FluidNone) && e->eVars.fluidSolver->k2factor)
 		logPrintf("\nCorrection to mu due to finite nuclear width = %lg\n", ionWidthMuCorrection());
 }
 

@@ -34,9 +34,9 @@ inline double antoinePvap(double T, double A, double B, double C)
 
 //Wrapper to atomicSymbolMap
 inline int getAtomicNumber(const char* symbol)
-{	int atNum = 0;
-	atomicSymbolMap.getEnum(symbol, atNum);
-	return atNum;
+{	AtomicSymbol atSym;
+	atomicSymbolMap.getEnum(symbol, atSym);
+	return int(atSym);
 }
 
 FluidComponent::Type FluidComponent::getType(FluidComponent::Name name)
@@ -49,18 +49,25 @@ FluidComponent::Type FluidComponent::getType(FluidComponent::Name name)
 		case PC:
 		case DMF:
 		case THF:
+		case CustomSolvent:
 			return Solvent;
 		case Sodium:
+		case CustomCation:
 			return Cation;
+		case CustomAnion:
 		case Chloride:
 			return Anion;
+		default:
+			assert(!"Unknown component type");
+			return Solvent;
 	}
 }
 
 
 FluidComponent::FluidComponent(FluidComponent::Name name, double T, FluidComponent::Functional functional)
 : name(name), type(getType(name)), functional(functional), representation(MuEps),
-s2quadType(S2_7design_24), quad_nAlpha(0), quad_nBeta(0), quad_nGamma(0), fourierTranslation(false),
+s2quadType(Quad7design_24), quad_nBeta(0), quad_nAlpha(0), quad_nGamma(0), fourierTranslation(false),
+epsBulk(1.), Nbulk(0.), pMol(0.), epsInf(1.), Pvap(0.), sigmaBulk(0.), Rvdw(0.), Res(0.),
 Nnorm(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 {
 	//Nuclear widths = (1./6) vdW radius
@@ -81,12 +88,12 @@ Nnorm(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 			Rvdw = ScalarEOS_eval(T).vdwRadius();
 			Res = 1.42;
 			//Site properties:
-			auto siteO = std::make_shared<Molecule::Site>("O",AtomicSymbol::O);
+			auto siteO = std::make_shared<Molecule::Site>("O",int(AtomicSymbol::O));
 				siteO->Znuc = 6.; siteO->sigmaNuc = sigmaNucO;
 				siteO->Zelec = 6.826; siteO->aElec = 0.35;
 				siteO->alpha = 3.73; siteO->aPol = 0.32;
 			molecule.sites.push_back(siteO);
-			auto siteH = std::make_shared<Molecule::Site>("H",AtomicSymbol::H);
+			auto siteH = std::make_shared<Molecule::Site>("H",int(AtomicSymbol::H));
 				siteH->Znuc = 1.; siteH->sigmaNuc = sigmaNucH;
 				siteH->Zelec = 0.587; siteH->aElec = 0.26;
 				siteH->alpha = 3.30; siteH->aPol = 0.39;
@@ -131,17 +138,17 @@ Nnorm(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 			Rvdw = TaoMasonEOS_eval(T, 536.6*Kelvin, 5328.68*KPascal, 0.216, 0.).vdwRadius();
 			Res = 2.22;
 			//Site properties:
-			auto siteC = std::make_shared<Molecule::Site>("C",AtomicSymbol::C);
+			auto siteC = std::make_shared<Molecule::Site>("C",int(AtomicSymbol::C));
 				siteC->Znuc = 4.; siteC->sigmaNuc = sigmaNucC;
 				siteC->Zelec = 4.256; siteC->aElec = 0.36;
 				siteC->alpha = 6.05; siteC->aPol = 0.36;
 			molecule.sites.push_back(siteC);
-			auto siteH = std::make_shared<Molecule::Site>("H",AtomicSymbol::H);
+			auto siteH = std::make_shared<Molecule::Site>("H",int(AtomicSymbol::H));
 				siteH->Znuc = 1.; siteH->sigmaNuc = sigmaNucH;
 				siteH->Zelec = 0.756; siteH->aElec = 0.41;
 				siteH->alpha = 9.13; siteH->aPol = 0.41;
 			molecule.sites.push_back(siteH);
-			auto siteCl = std::make_shared<Molecule::Site>("Cl",AtomicSymbol::Cl);
+			auto siteCl = std::make_shared<Molecule::Site>("Cl",int(AtomicSymbol::Cl));
 				siteCl->Znuc = 7.; siteCl->sigmaNuc = sigmaNucCl;
 				siteCl->Zelec = 6.996; siteCl->aElec = 0.46;
 				siteCl->alpha = 15.8; siteCl->aPol = 0.46;
@@ -168,12 +175,12 @@ Nnorm(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 			Rvdw = TaoMasonEOS_eval(T, 556.4*Kelvin, 4493*KPascal, 0.194, 0.).vdwRadius();
 			Res = 1.90;
 			//Site properties:
-			auto siteC = std::make_shared<Molecule::Site>("C",AtomicSymbol::C);
+			auto siteC = std::make_shared<Molecule::Site>("C",int(AtomicSymbol::C));
 				siteC->Znuc = 4.; siteC->sigmaNuc = sigmaNucC;
 				siteC->Zelec = 4.980; siteC->aElec = 0.35;
 				siteC->alpha = 5.24; siteC->aPol = 0.35;
 			molecule.sites.push_back(siteC);
-			auto siteCl = std::make_shared<Molecule::Site>("Cl",AtomicSymbol::Cl);
+			auto siteCl = std::make_shared<Molecule::Site>("Cl",int(AtomicSymbol::Cl));
 				siteCl->Znuc = 7.; siteCl->sigmaNuc = sigmaNucCl;
 				siteCl->Zelec = 6.755; siteCl->aElec = 0.47;
 				siteCl->alpha = 18.1; siteCl->aPol = 0.47;
@@ -241,5 +248,23 @@ void FluidComponent::addToFluidMixture(FluidMixture* fluidMixture)
 {	assert(!idealGas);
 	assert(!fex);
 	//Initialize excess functional:
+// 	switch(params.fluidType)
+// 	{	case FluidFittedCorrelations: fex = new Fex_H2O_FittedCorrelations(*fluidMixture); break;
+// 		case FluidScalarEOS: fex = new Fex_H2O_ScalarEOS(*fluidMixture); break;
+// 		case FluidScalarEOSCustom: fex = new Fex_H2O_Custom(*fluidMixture, params.H2OSites); break;
+// 		case FluidBondedVoids: fex = new Fex_H2O_BondedVoids(*fluidMixture); break;
+// 		case FluidHSIonic: break;
+// 		default: assert(!"This is not a JDFT3 functional");
+// 	}
+	//Initialize ideal gas:
+// 	const int Zn = 2; //Water molecule has Z2 symmetry about dipole axis
+// 	quad = new SO3quad(params.s2quadType, Zn, params.quad_nBeta, params.quad_nAlpha, params.quad_nGamma);
+// 	trans = new TranslationOperatorSpline(e.gInfo, TranslationOperatorSpline::Linear);
+// 	idgas = new IdealGasMuEps(fex, 55.0*mol/liter, *quad, *trans);
 	
+// 	HardSphereIon* Ion = &params.hSIons[iIon];
+// 	Ion->fex = new Fex_HardSphereIon(*fluidMixture, Ion);
+// 	Ion->idgas = new IdealGasMonoatomic(Ion->fex, Ion->Concentration);
+// 	if (Ion->MixFunc)
+// 		Ion->fmix = new Fmix_IonSolvation(*fluidMixture, *fex, Ion);                                                                   
 }

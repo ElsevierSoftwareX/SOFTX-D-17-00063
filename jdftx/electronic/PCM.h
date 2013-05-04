@@ -35,8 +35,7 @@ public:
 	void dumpDebug(const char* filenamePattern) const; //!< generate fluidDebug text file with common info to all PCMs
 
 protected:
-	FluidSolverParams fsp;
-	double k2factor; //!< Prefactor to kappaSq
+	std::shared_ptr<FluidComponent> solvent, cation, anion; //!< pointers to fluid components (by type); cation and anion set only for NonlinearPCM
 	
 	EnergyComponents Adiel; //!< PCM energy components
 	DataGptr rhoExplicitTilde; //!< Charge density of explicit (electronic) system

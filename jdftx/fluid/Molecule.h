@@ -48,7 +48,7 @@ struct Molecule
 		explicit operator bool() const { return initialized; } //!< return whether site has been setup
 		
 		RadialFunctionG w0, w1, w2, w3, w1v, w2m; //!< Hard sphere weight functions
-		RadialFunctionG elecKernel, chargeKernel; //!< Electron density and net charge density kernels for the sites
+		RadialFunctionG elecKernel, chargeKernel, polKernel; //!< Electron density, net charge density and polarizability kernels for the sites
 	private:
 		bool initialized;
 	};
@@ -59,6 +59,7 @@ struct Molecule
 	bool isMonoatomic() const; //!< whether it is a monoatomic molecule
 	double getCharge() const; //!< total charge on molecule
 	vector3<> getDipole() const; //!< total dipole moment on molecule
+	double getVhs() const; //!< total exclusion volume
 	std::map<double,int> getBonds() const; //!< get the harmonic sum of radii for spheres in contact, with the multiplicities for each such pair
 };
 

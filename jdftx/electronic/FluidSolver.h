@@ -31,9 +31,11 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 struct FluidSolver
 {
 	const Everything& e;
-
+	const FluidSolverParams& fsp;
+	double k2factor; //!< prefactor to screening term (0 => no ionic screening)
+	
 	//! Abstract base class constructor - do not use directly - see FluidSolver::createSolver
-	FluidSolver(const Everything &everything);
+	FluidSolver(const Everything &e, const FluidSolverParams& fsp);
 		
 	virtual ~FluidSolver() {}
 
@@ -74,6 +76,6 @@ struct FluidSolver
 };
 
 //! Create and return a JDFTx solver (the solver can be freed using delete)
-FluidSolver* createFluidSolver(const Everything& e, FluidSolverParams& params);
+FluidSolver* createFluidSolver(const Everything& e, const FluidSolverParams& params);
 
 #endif // JDFTX_ELECTRONIC_FLUIDSOLVER_H

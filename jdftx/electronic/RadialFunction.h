@@ -29,7 +29,20 @@ class RadialFunctionG
 {
 	double dGinv; //!< inverse sample spacing
 	int nCoeff; //!< number of coefficients
-	double* coeff; //!< coefficients (either on cpu or gpu depending on isGpuEnabled())
+	std::vector<double> coeff; //!< coefficients on cpu
+	#ifdef GPU_ENABLED
+	double* coeffGpu; //!< coefficients on gpu
+	#endif
+
+	//Access appropriate coefficients depending on whether called from CPU/GPU
+	__hostanddev__ const double* getCoeff() const
+	{
+		#ifdef __CUDA_ARCH__
+		return coeffGpu;
+		#else
+		return coeff.data();
+		#endif
+	}
 
 public:
 	RadialFunctionG();
@@ -41,11 +54,10 @@ public:
 	__hostanddev__ double operator()(double G) const
 	{	double Gindex = G * dGinv;
 		if(Gindex >= nCoeff-1) return 0.;
-		else return QuinticSpline::value(coeff, Gindex);
+		else return QuinticSpline::value(getCoeff(), Gindex);
 	}
 	
 	RadialFunctionR* rFunc; //!< copy of the real-space radial version (if created from one)
-	double Gzero; //!< the G=0 value of the kernel
 	
 	#ifndef __in_a_cu_file__
 	//! Helper functional for initializing using a function
@@ -55,7 +67,7 @@ public:
 		init(l, samples, dG);
 	}
 	
-	explicit operator bool() const { return coeff; } //!< test null-ness
+	explicit operator bool() const { return nCoeff; } //!< test null-ness
 	#endif
 };
 

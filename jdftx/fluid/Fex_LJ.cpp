@@ -65,8 +65,8 @@ double Fex_LJ::compute(const DataGptr* Ntilde, DataGptr* Phi_Ntilde) const
 	return 0.5*gInfo.dV*dot(V,Ntilde[0]);
 }
 double Fex_LJ::computeUniform(const double* N, double* Phi_N) const
-{	Phi_N[0] += ljatt.Gzero*N[0];
-	return 0.5*N[0]*ljatt.Gzero*N[0];
+{	Phi_N[0] += ljatt(0)*N[0];
+	return 0.5*N[0]*ljatt(0)*N[0];
 }
 
 
@@ -94,8 +94,7 @@ double Fmix_LJ::compute(const DataGptrCollection& Ntilde, DataGptrCollection& Ph
 double Fmix_LJ::computeUniform(const std::vector<double>& N, std::vector<double>& Phi_N) const
 {	unsigned i1 = fluid1.offsetDensity;
 	unsigned i2 = fluid2.offsetDensity;
-	Phi_N[i1] += ljatt.Gzero*N[i2];
-	Phi_N[i2] += ljatt.Gzero*N[i1];
-	return N[i1]*ljatt.Gzero*N[i2];
+	Phi_N[i1] += ljatt(0)*N[i2];
+	Phi_N[i2] += ljatt(0)*N[i1];
+	return N[i1]*ljatt(0)*N[i2];
 }
-

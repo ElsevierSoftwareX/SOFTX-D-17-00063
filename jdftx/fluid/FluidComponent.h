@@ -37,10 +37,13 @@ struct FluidComponent
 		PC, //!< Propylene carbonate
 		DMF, //!< Dimethylformamide
 		THF, //!< Tetrahydrofuran
+		CustomSolvent, //!< Custom solvent (molecule and other parameters initialized manually)
 		//Cations:
 		Sodium, //!< Na+
+		CustomCation, //!< Custom cation (molecule and other parameters initialized manually)
 		//Anions:
-		Chloride //!< Cl-
+		Chloride, //!< Cl-
+		CustomAnion //!< Custom anion (molecule and other parameters initialized manually)
 	};
 	const Name name;
 	
@@ -56,7 +59,8 @@ struct FluidComponent
 	{	ScalarEOS, //!< Generic hard sphere + weighted density functional constrained to equation of state based on [R. Sundararaman and T.A. Arias, arXiv:1302.0026]
 		FittedCorrelations, //!< H2O functional from [J. Lischner and T. A. Arias, J. Phys. Chem. B 114, 1946 (2010)] (DEPRECATED)
 		BondedVoids, //!< H2O functional from [R. Sundararaman, K. Letchworth-Weaver and T.A. Arias, J. Chem. Phys. 137, 044107 (2012)]
-		MeanFieldLJ //!< Hard sphere + mean field Lennard-Jones perturbation (useful for ions in solution)
+		MeanFieldLJ, //!< Hard sphere + mean field Lennard-Jones perturbation (useful for ions in solution)
+		Custom //!< Not managed by FluidComponent: fex must be initialized manually before calling addToFluidMixture()
 	};
 	const Functional functional;
 	

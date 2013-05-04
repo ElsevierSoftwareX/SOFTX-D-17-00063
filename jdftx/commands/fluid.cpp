@@ -26,11 +26,7 @@ EnumStringMap<FluidType> fluidTypeMap
 	FluidLinearPCM, "LinearPCM",
 	FluidNonlinearPCM, "NonlinearPCM",
 	FluidNonlocalPCM, "NonlocalPCM",
-	FluidFittedCorrelations, "FittedCorrelations",
-	FluidScalarEOS, "ScalarEOS",
-	FluidScalarEOSCustom, "ScalarEOSCustom",
-	FluidBondedVoids, "BondedVoids",
-	FluidHSIonic, "HSIonic"
+	FluidClassicalDFT, "ClassicalDFT"
 );
 
 struct CommandFluid : public Command

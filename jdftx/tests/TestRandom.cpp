@@ -88,6 +88,15 @@ void checkSymmetry(DataRptr a, DataRptr b, const TranslationOperator& T, const v
 	printf("Symmetry error = %le\n", fabs(n1-n2)/fabs(n1));
 }
 
+void setSimpleMolecule(Molecule& molecule, string name, double Q, double Rhs)
+{	molecule.sites.clear();
+	molecule.name = name;
+	auto site = std::make_shared<Molecule::Site>(name);
+		site->Znuc = Q; site->sigmaNuc = (1./6)*Rhs;
+		site->Rhs = Rhs;
+	molecule.sites.push_back(site);
+}
+
 int main(int argc, char** argv)
 {	initSystem(argc, argv);
 
@@ -123,23 +132,28 @@ int main(int argc, char** argv)
 	gInfo.initialize();
 	vector3<> rCenter = gInfo.R * vector3<>(0.5,0.5,0.5);
 
+	double sigmaAr = 3.405*Angstrom, epsAr = 119.8*Kelvin;
+	double sigmaNe = 2.782*Angstrom, epsNe = 3.2135e-3*eV;
+	FluidComponent componentAr(FluidComponent::CustomCation, T, FluidComponent::MeanFieldLJ);
+	setSimpleMolecule(componentAr.molecule, "Ar", +1., sigmaAr);
+	//componentAr.epsLJ = epsAr;
+	componentAr.Nbulk = 2e-3;
+	FluidComponent componentNe(FluidComponent::CustomCation, T, FluidComponent::MeanFieldLJ);
+	setSimpleMolecule(componentNe.molecule, "Ne", -2., sigmaNe);
+	//componentNe.epsLJ = epsNe;
+	componentNe.Nbulk = 1e-3;
+	
 	FluidMixture fluidMixture(gInfo, T);
-	//Argon component:
-	Fex_LJ fexAr(fluidMixture, 119.8*Kelvin, 3.405*Angstrom, "Ar", +1); //params from SLOGwiki
-	IdealGasMonoatomic idAr(&fexAr, 2.0);
-	//Neon component:
-	Fex_LJ fexNe(fluidMixture, 3.2135e-3*eV, 2.782*Angstrom, "Ne", -2); //params from SLOGwiki
-	IdealGasMonoatomic idNe(&fexNe, 1.0);
-	//Interaction between them:
-	Fmix_LJ fmixLJ(fexAr, fexNe);
-	//based on mole fractions, this should create a 2:1 Ar:Ne mixture
+	componentAr.addToFluidMixture(&fluidMixture);
+	componentNe.addToFluidMixture(&fluidMixture);
+	Fmix_LJ fmixLJ(&fluidMixture, &componentAr, &componentNe, sqrt(epsAr*epsNe), sigmaAr+sigmaNe);
 
 	fluidMixture.setPressure(1000*Bar);
 
 	const double Radius = 3.;
-	nullToZero(idAr.V[0], gInfo);
-	applyFunc_r(gInfo, initHardSphere, rCenter, Radius, 1, idAr.V[0]->data());
-	idNe.V[0] = idAr.V[0];
+	nullToZero(componentAr.idealGas->V[0], gInfo);
+	applyFunc_r(gInfo, initHardSphere, rCenter, Radius, 1, componentAr.idealGas->V[0]->data());
+	componentNe.idealGas->V[0] = componentAr.idealGas->V[0];
 
 	DataRptr rhoExternal(DataR::alloc(gInfo));
 	applyFunc_r(gInfo, initHardSphere, rCenter, Radius, 1.016177/(4*M_PI*pow(Radius,3)/3), rhoExternal->data());
@@ -169,8 +183,8 @@ int main(int argc, char** argv)
 	printf("num(Ar) = %lf\n", integral(N[0]));
 	printf("num(Ne) = %lf\n", integral(N[1]));
 
-	N[0] *= 1.0/idAr.get_Nbulk();
-	N[1] *= 1.0/idNe.get_Nbulk();
+	N[0] *= 1.0/componentAr.idealGas->get_Nbulk();
+	N[1] *= 1.0/componentNe.idealGas->get_Nbulk();
 	saveSphericalized(&N[0], N.size(), "random-ArNe", 0.25);
 	DataRptr dTot = I(grad_rhoExternalTilde - 4*M_PI*Linv(O(J(rhoExternal))));
 	saveSphericalized(&dTot, 1, "random-dTot", 0.25);

@@ -44,20 +44,26 @@ inline double setPreconditioner(double G, double kappaSqByEpsilon, double muByEp
 NonlinearPCM::NonlinearPCM(const Everything& e, const FluidSolverParams& fsp)
 : PCM(e, fsp)
 {
+	pMol = solvent->molecule.getDipole().length();
+	if(cation && anion)
+	{	ionNbulk = cation->Nbulk;
+		ionZ = cation->molecule.getCharge();
+	}
+	else ionNbulk = 0.;
+	
 	//Initialize dielectric evaluation class:
 	dielectricEval = new NonlinearPCMeval::Dielectric(fsp.linearDielectric,
-		fsp.T, fsp.Nbulk, fsp.pMol, fsp.epsBulk, fsp.epsInf);
+		fsp.T, solvent->Nbulk, pMol, solvent->epsBulk, solvent->epsInf);
 	
 	//Optionally initialize screening evaluation class:
 	screeningEval = 0;
-	if(fsp.ionicConcentration)
+	if(ionNbulk)
 		screeningEval = new NonlinearPCMeval::Screening(fsp.linearScreening,
-			fsp.T, fsp.ionicConcentration, fsp.ionicZelectrolyte,
-			fsp.ionicRadiusPlus, fsp.ionicRadiusMinus, fsp.epsBulk);
+			fsp.T, ionNbulk, ionZ, cation->molecule.getVhs(), anion->molecule.getVhs(), solvent->epsBulk);
 	
 	//Initialize preconditioner (for mu channel):
-	double muByEps = (fsp.ionicZelectrolyte/fsp.pMol) * (1.-dielectricEval->alpha/3); //relative scale between mu and eps
-	preconditioner.init(0, 0.02, e.iInfo.GmaxLoc, setPreconditioner, k2factor/fsp.epsBulk, muByEps*muByEps);
+	double muByEps = (ionZ/pMol) * (1.-dielectricEval->alpha/3); //relative scale between mu and eps
+	preconditioner.init(0, 0.02, e.gInfo.GmaxGrid, setPreconditioner, k2factor/solvent->epsBulk, muByEps*muByEps);
 }
 
 NonlinearPCM::~NonlinearPCM()
@@ -84,12 +90,12 @@ void NonlinearPCM::set(const DataGptr& rhoExplicitTilde, const DataGptr& nCavity
 		//mu:
 		DataRptr mu;
 		if(screeningEval && screeningEval->linear)
-		{	mu = (-fsp.ionicZelectrolyte/fsp.T) * I(linearPCM.state);
+		{	mu = (-ionZ/fsp.T) * I(linearPCM.state);
 			mu -= integral(mu)/e.gInfo.detR; //project out G=0
 		}
 		else initZero(mu, e.gInfo); //initialization logic does not work well with hard sphere limit
 		//eps:
-		DataRptrVec eps = (-fsp.pMol/fsp.T) * I(gradient(linearPCM.state));
+		DataRptrVec eps = (-pMol/fsp.T) * I(gradient(linearPCM.state));
 		DataRptr E = sqrt(eps[0]*eps[0] + eps[1]*eps[1] + eps[2]*eps[2]);
 		DataRptr Ecomb = 0.5*((dielectricEval->alpha-3.) + E);
 		DataRptr epsByE = inv(E) * (Ecomb + sqrt(Ecomb*Ecomb + 3.*E));
@@ -242,8 +248,8 @@ void NonlinearPCM::dumpDensities(const char* filenamePattern) const
 			DataRptr muMinus = getMuMinus(state);
 			double Qexp = integral(rhoExplicitTilde);
 			double mu0 = screeningEval->neutralityConstraint(muPlus, muMinus, shape, Qexp);
-			Nplus = fsp.ionicConcentration * shape * (fsp.linearScreening ? 1.+(mu0+muPlus) : exp(mu0+muPlus));
-			Nminus = fsp.ionicConcentration * shape * (fsp.linearScreening ? 1.-(mu0+muMinus) : exp(-(mu0+muMinus)));
+			Nplus = ionNbulk * shape * (fsp.linearScreening ? 1.+(mu0+muPlus) : exp(mu0+muPlus));
+			Nminus = ionNbulk * shape * (fsp.linearScreening ? 1.-(mu0+muMinus) : exp(-(mu0+muMinus)));
 		}
 		string filename;
 		FLUID_DUMP(Nplus, "N+");

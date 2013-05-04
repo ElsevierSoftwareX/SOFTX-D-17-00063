@@ -33,6 +33,14 @@ void initHardSphere(int i, vector3<> r, const vector3<>& r0, double radius, doub
 {	phi[i] = ((r - r0).length() < radius ? height : 0.0);
 }
 
+void setSimpleMolecule(Molecule& molecule, string name, double Q, double Rhs)
+{	molecule.sites.clear();
+	molecule.name = name;
+	auto site = std::make_shared<Molecule::Site>(name);
+		site->Znuc = Q; site->sigmaNuc = (1./6)*Rhs;
+		site->Rhs = Rhs;
+	molecule.sites.push_back(site);
+}
 
 
 int main(int argc, char** argv)
@@ -88,16 +96,15 @@ int main(int argc, char** argv)
 	printf("\tS = [ %d %d %d ];\n\n", gInfo.S[0], gInfo.S[1], gInfo.S[2]);
 	gInfo.initialize();
 
-	
-	FluidMixture fluidMixture(gInfo, 298*Kelvin);
-
-	//----- Excess functional ----- Lennard Jones fluid w/ THF parameters from
+	double T = 298*Kelvin;
+	//Lennard Jones fluid w/ THF parameters from
 	//Journal of Solution Chemistry Volume 22, Number 3, 211-217, DOI: 10.1007/BF00649244
-	//Fex_LJ fex(fluidMixture, 519.0*Kelvin, 5.08*Angstrom, "THF");
-	Fex_LJ fex(fluidMixture, 519.0*Kelvin, 5.08*Angstrom, "THF");
-	
-	//----- Ideal gas -----
-	IdealGasMonoatomic idgas(&fex,1.0);               
+	FluidComponent component(FluidComponent::CustomSolvent, T, FluidComponent::MeanFieldLJ);
+	setSimpleMolecule(component.molecule, "THF", 0., 5.08*Angstrom);
+	//component.epsLJ = 519.0*Kelvin;
+
+	FluidMixture fluidMixture(gInfo, T);
+	component.addToFluidMixture(&fluidMixture);
 
 	double p = 1.01325*Bar;
 	printf("pV = %le\n", p*gInfo.detR);
@@ -110,6 +117,7 @@ int main(int argc, char** argv)
 	printf("SumCheck: %lf electrons\n\n", integral(nElectronic));
 
 	printf("Initializing cavity with nc = %le ... ", pcm_nc); fflush(stdout);
+	IdealGas& idgas = *(component.idealGas);
 	nullToZero(idgas.V, gInfo);
 	threadedLoop(initCavity, gInfo.nr, pcm_nc, nElectronic->data(), idgas.V[0]->data());
 	double CavityVolume = integral(idgas.V[0]);	
@@ -140,5 +148,4 @@ int main(int argc, char** argv)
 	DataRptrCollection N(1);
 	double phiFinal = fluidMixture.getFreeEnergy(&N);
 	printf("\nCavitation energy = %le Eh\n\n", phiFinal);
-
 }

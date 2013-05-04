@@ -42,7 +42,7 @@ void FluidMixture::setPressure(double p)
 	{	Nguess += c->Nbulk;
 		for(const auto& site: c->molecule.sites)
 			if(site->Rhs)
-				n3 += site->w3.Gzero * site->positions.size();
+				n3 += site->w3(0) * site->positions.size();
 	}
 	const double mulStep = 0.99;
 	double Nstart = Nguess;
@@ -192,7 +192,6 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 	for(unsigned ic=0; ic<component.size(); ic++)
 	{	const FluidComponent& c = *component[ic];
 		double Qmolecule = c.molecule.getCharge();
-		if(fabs(Qmolecule) < 1e-14) Qmolecule = 0.0; //create neutrality constraint
 		if(c.Nnorm>0 || Qmolecule)
 		{	double N0 = integral(Ntilde[c.offsetDensity])/c.molecule.sites[0]->positions.size();
 			if(c.Nnorm>0)
@@ -290,8 +289,9 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 		if(rho)
 		{	Phi["Coulomb"] += 0.5*dot(rho,Od);
 			Phi["PsqCell"] += 0.5 * 4*M_PI * Ptot.length_squared() / gInfo.detR;
+			Phi["ExtCoulomb"] += dot(-Eexternal, Ptot); //external uniform electric field
 			DataGptr Phi_rho = Od;
-			vector3<> Phi_Ptot = 4*M_PI * Ptot / gInfo.detR;
+			vector3<> Phi_Ptot = 4*M_PI * Ptot / gInfo.detR - Eexternal;
 			if(rhoExternal)
 			{	Phi["ExtCoulomb"] += dot(rhoExternal, Od);
 				Phi_rho += O(-4*M_PI*Linv(O(rhoExternal)));
@@ -521,10 +521,10 @@ double FluidMixture::computeUniformEx(const std::vector<double>& Nmol, std::vect
 			if(s.Rhs)
 			{	double Nsite = N[c.offsetDensity+i];
 				n0mult[ic] += s.positions.size();
-				n0mol[ic]  += s.w0.Gzero  * Nsite;
-				n1         += s.w1.Gzero  * Nsite;
-				n2         += s.w2.Gzero  * Nsite;
-				n3         += s.w3.Gzero  * Nsite;
+				n0mol[ic]  += s.w0(0)  * Nsite;
+				n1         += s.w1(0)  * Nsite;
+				n2         += s.w2(0)  * Nsite;
+				n3         += s.w3(0)  * Nsite;
 			}
 		}
 		n0 += n0mol[ic];
@@ -543,7 +543,7 @@ double FluidMixture::computeUniformEx(const std::vector<double>& Nmol, std::vect
 			{	//Propagate gradient w.r.t n0mol[ic] to the site densities:
 				for(unsigned i=0; i<c.molecule.sites.size(); i++)
 				{	const Molecule::Site& s = *(c.molecule.sites[i]);
-					if(s.Rhs) Phi_N[c.offsetDensity+i] += T * (s.w0.Gzero  * Phi_n0mol);
+					if(s.Rhs) Phi_N[c.offsetDensity+i] += T * (s.w0(0)  * Phi_n0mol);
 				}
 			}
 		}
@@ -553,10 +553,10 @@ double FluidMixture::computeUniformEx(const std::vector<double>& Nmol, std::vect
 			{	const Molecule::Site& s = *(c->molecule.sites[i]);
 				if(s.Rhs)
 				{	double& Phi_Nsite = Phi_N[c->offsetDensity+i];
-					Phi_Nsite += T * (s.w0.Gzero  * Phi_n0);
-					Phi_Nsite += T * (s.w1.Gzero  * Phi_n1);
-					Phi_Nsite += T * (s.w2.Gzero  * Phi_n2);
-					Phi_Nsite += T * (s.w3.Gzero  * Phi_n3);
+					Phi_Nsite += T * (s.w0(0)  * Phi_n0);
+					Phi_Nsite += T * (s.w1(0)  * Phi_n1);
+					Phi_Nsite += T * (s.w2(0)  * Phi_n2);
+					Phi_Nsite += T * (s.w3(0)  * Phi_n3);
 				}
 			}
 		}

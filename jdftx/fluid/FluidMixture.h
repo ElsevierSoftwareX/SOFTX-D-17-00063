@@ -34,7 +34,8 @@ public:
 	const GridInfo& gInfo;
 	const double T; //!< Temperature
 	bool verboseLog; //!< print energy components etc. if enabled (off by default)
-	
+	vector3<> Eexternal; //!< External uniform electric field
+
 	FluidMixture(const GridInfo& gInfo, const double T=298*Kelvin);
 	virtual ~FluidMixture() {}
 

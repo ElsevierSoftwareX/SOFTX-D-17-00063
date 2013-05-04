@@ -236,8 +236,7 @@ void ElecVars::EdensityAndVscloc(Energies& ener, const ExCorr* alternateExCorr)
 
 		//Net electric charge:
 		DataGptr rhoExplicitTilde = nTilde + iInfo.rhoIon + rhoExternal;
-		if(!(fluidParams.ionicConcentration || fluidParams.hSIons.size()))
-			rhoExplicitTilde->setGzero(0.); //No screening => apply neutralizing background charge
+		if(!fluidSolver->k2factor) rhoExplicitTilde->setGzero(0.); //No screening => apply neutralizing background charge
 		fluidSolver->set(rhoExplicitTilde, nCavityTilde);
 		// If the fluid doesn't have a gummel loop, minimize it each time:
 		if(!fluidSolver->needsGummel()) fluidSolver->minimizeFluid();
@@ -248,7 +247,7 @@ void ElecVars::EdensityAndVscloc(Energies& ener, const ExCorr* alternateExCorr)
 		VsclocTilde += V_cavity;
 		
 		//Chemical-potential correction due to finite nuclear width in fluid interaction:
-		if(fluidParams.ionicConcentration || fluidParams.hSIons.size())
+		if(fluidSolver->k2factor)
 		{	double muCorrection = iInfo.ionWidthMuCorrection();
 			ener.E["A_diel"] += (eInfo.nElectrons - iInfo.getZtot()) * muCorrection;
 			VsclocTilde->setGzero(muCorrection + VsclocTilde->getGzero());

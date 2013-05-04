@@ -95,9 +95,6 @@ double IdealGasMuEps::compute(const DataRptr* mueps, const DataRptr* N, DataRptr
 		{	Phi_N[i] += V[i];
 			PhiNI += gInfo.dV*dot(N[i], V[i]);
 		}
-	//Contributions due to uniform electric field:
-	Phi_P -= Eexternal;
-	PhiNI -= dot(Eexternal, P);
 	//KE and mu:
 	double invSite0mult = 1./molecule.sites[0]->positions.size();
 	Phi_N[0] -= mu * invSite0mult;

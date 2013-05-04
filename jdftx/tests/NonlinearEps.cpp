@@ -35,25 +35,15 @@ int main(int argc, char** argv)
 	gInfo.R = Diag(hGrid * gInfo.S);
 	gInfo.initialize();
 
-	//----- Setup quadrature for angular integration -----
-	const int Zn = 2; //Water molecule has Z2 symmetry about dipole axis
-	SO3quad quad(QuadEuler, Zn, 11, 2, 1); //use symmetries to construct extremely efficient specific quadrature
+	double T = 298*Kelvin;
+	FluidComponent component(FluidComponent::H2O, T, FluidComponent::ScalarEOS);
+	component.s2quadType = QuadEuler;
+	component.quad_nBeta = 11;
+	component.quad_nAlpha = 2;
+	component.quad_nGamma = 1;
 	
-	//----- Translation operator -----
-	//TranslationOperatorSpline trans(gInfo, TranslationOperatorSpline::Constant);
-	TranslationOperatorSpline trans(gInfo, TranslationOperatorSpline::Linear);
-	//TranslationOperatorFourier trans(gInfo);
-
-	FluidMixture fluidMixture(gInfo, 298*Kelvin);
-
-	//----- Excess functional -----
-	//Fex_H2O_FittedCorrelations fex(fluidMixture);
-	//Fex_H2O_ScalarEOS fex(fluidMixture, true);
-	Fex_H2O_BondedVoids fex(fluidMixture);
-
-	//----- Ideal gas -----
-	IdealGasMuEps idgas(&fex, 1.0, quad, trans);
-
+	FluidMixture fluidMixture(gInfo, T);
+	component.addToFluidMixture(&fluidMixture);
 	double p = 1.01325*Bar;
 	printf("pV = %le\n", p*gInfo.detR);
 	fluidMixture.setPressure(p);
@@ -69,7 +59,7 @@ int main(int argc, char** argv)
 	for(; Dfield<5e-2; Dfield+=2e-3)
 	{
 		mp.energyDiffThreshold = 1e-9 * gInfo.detR * pow(Dfield,2);
-		idgas.Eexternal = vector3<>(0, 0, Dfield);
+		fluidMixture.Eexternal = vector3<>(0, 0, Dfield);
 
 		if(!stateInitialized) //first iteration
 		{	fluidMixture.initState(0.05); stateInitialized=true;
@@ -89,7 +79,7 @@ int main(int argc, char** argv)
 		double D_SI = Dfield/(eV/Angstrom); //Dfield in V/A
 		printf("epsilon = %lf at D = %lf V/A\n", epsilon, D_SI);
 		fprintf(fpEps, "%le\t%le\t%le\t%le\n", D_SI, epsilon,
-			pTyp/(nTyp*fex.getMolecule()->get_dipole()), nTyp);
+			pTyp/(nTyp*component.molecule.getDipole().length()), nTyp);
 		fflush(fpEps);
 		if(std::isnan(epsilon) || epsilon<0.0) break;
 	}

@@ -24,6 +24,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 //! Parameters describing the fluids in the electronic code
 
 #include <electronic/ExCorr.h>
+#include <fluid/FluidComponent.h>
 
 enum FluidType
 {
@@ -51,6 +52,8 @@ struct FluidSolverParams
 	double T; //!< temperature
 	double P; //!< pressure
 	bool verboseLog; //!< whether iteration progress is printed for Linear PCM's, and whether sub-iteration progress is printed for others
+	
+	std::vector< std::shared_ptr<FluidComponent> > components; //!< list of fluid components
 	
 	//Fit parameters:
 	double nc; //!< critical density for the PCM cavity shape function

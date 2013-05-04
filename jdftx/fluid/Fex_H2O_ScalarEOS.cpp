@@ -24,12 +24,14 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <core/Operators.h>
 #include <electronic/operators.h>
 
+string rigidMoleculeCDFT_ScalarEOSpaper = "R. Sundararaman and T.A. Arias, arXiv:1302.0026";
+
 Fex_H2O_ScalarEOS::Fex_H2O_ScalarEOS(const FluidMixture* fluidMixture, const FluidComponent* comp)
 : Fex(fluidMixture, comp), eval(new ScalarEOS_eval(T))
 {
 	//Initialize the kernels:
 	setLJatt(fex_LJatt, gInfo, -9.0/(32*sqrt(2)*M_PI*pow(2*eval->sphereRadius,3)), 2*eval->sphereRadius);
-	Citations::add("Scalar-EOS water functional", "R. Sundararaman and T.A. Arias, arXiv:1302.0026");
+	Citations::add("Scalar-EOS water functional", rigidMoleculeCDFT_ScalarEOSpaper);
 }
 Fex_H2O_ScalarEOS::~Fex_H2O_ScalarEOS()
 {	fex_LJatt.free();

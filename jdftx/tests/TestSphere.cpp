@@ -38,36 +38,20 @@ struct TestSphere
 
 	void test()
 	{
-
-		//----- Setup quadrature for angular integration -----
-		const int Zn = 2; //Water molecule has Z2 symmetry about dipole axis
-		SO3quad quad(QuadOctahedron, Zn);
-
-		//----- Translation operator -----
-		//TranslationOperatorSpline trans(gInfo, TranslationOperatorSpline::Constant);
-		TranslationOperatorSpline trans(gInfo, TranslationOperatorSpline::Linear);
-		//TranslationOperatorFourier trans(gInfo);
-
-		FluidMixture fluidMixture(gInfo, 298*Kelvin);
-
-		//----- Excess functional -----
-		//Fex_H2O_FittedCorrelations fex(fluidMixture);
-		Fex_H2O_ScalarEOS fex(fluidMixture);
-		//Fex_H2O_BondedVoids fex(fluidMixture);
-
-		//----- Ideal gas -----
-		//IdealGasPsiAlpha idgas(&fex, 1.0, quad, trans);
-		//IdealGasMuEps idgas(&fex, 1.0, quad, trans);
-		IdealGasPomega idgas(&fex, 1.0, quad, trans);
-
+		double T = 298*Kelvin;
+		FluidComponent component(FluidComponent::H2O, T, FluidComponent::ScalarEOS);
+		component.s2quadType = QuadOctahedron;
+		
+		FluidMixture fluidMixture(gInfo, T);
+		component.addToFluidMixture(&fluidMixture);
 		double p = 1.01325*Bar;
 		printf("pV = %le\n", p*gInfo.detR);
 		fluidMixture.setPressure(p);
 
 		//----- Initialize external potential -----
 		double radius = 4.0*Angstrom;
-		nullToZero(idgas.V, gInfo);
-		applyFunc_r(gInfo, initHardSphere, gInfo.R*vector3<>(0.5,0.5,0.5), radius, 1.0, idgas.V[0]->data());
+		nullToZero(component.idealGas->V, gInfo);
+		applyFunc_r(gInfo, initHardSphere, gInfo.R*vector3<>(0.5,0.5,0.5), radius, 1.0, component.idealGas->V[0]->data());
 
 		//----- Initialize state -----
 		bool loadState = false; //true;

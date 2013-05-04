@@ -178,8 +178,16 @@ int main(int argc, char** argv)
 	V.setColumn(V.nCols()-1, sqrt(1./e.eVars.fluidParams.T)*Complex(rho));
 	
 	//Get liquid properties:
-	double Nbulk = e.eVars.fluidParams.Nbulk;
-	double epsBulk = e.eVars.fluidParams.epsBulk;
+	std::shared_ptr<FluidComponent> solvent;
+	for(const auto& c: e.eVars.fluidParams.components)
+	{	if(c->type==FluidComponent::Solvent)
+		{	if(solvent) die("PCMs currently only support a single solvent component.\n");
+			solvent = c;
+		}
+	}
+	if(!solvent) die("Unknown solvent.\n");
+	double Nbulk = solvent->Nbulk;
+	double epsBulk = solvent->epsBulk;
 	DataRptrVec rArr(e.gInfo); threadLaunch(rArrSet, e.gInfo.nr, e.gInfo.S, e.gInfo.R, center, rArr.data()); //Create array of r in real space
 	ColumnBundle OJr(3, basis.nbasis, &basis); for(int k=0; k<3; k++) OJr.setColumn(k, O(J(Complex(rArr[k])))); //Convert to a columnbundle projector
 	//Compute mean field dielectric constant

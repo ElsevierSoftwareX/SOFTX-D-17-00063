@@ -53,7 +53,7 @@ double Fex_H2O_BondedVoids::compute(const DataGptr* Ntilde, DataGptr* Phi_Ntilde
 	return 0.5*gInfo.dV*dot(V,Ntilde[0]);
 }
 double Fex_H2O_BondedVoids::computeUniform(const double* N, double* Phi_N) const
-{	Phi_N[0] += (-kappa)*Ua.Gzero*N[0];
-	return 0.5*(-kappa)*N[0]*Ua.Gzero*N[0];
+{	Phi_N[0] += (-kappa)*Ua(0)*N[0];
+	return 0.5*(-kappa)*N[0]*Ua(0)*N[0];
 }
 

@@ -28,8 +28,6 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 class IdealGasPomega : public IdealGas
 {
 public:
-	vector3<> Eexternal; //!< External uniform electric field (the P_omega fluid can be uniformly polarized!)
-
 	//!Initialize and associate with excess functional fex (and its fluid mixture)
 	//!Also specify the orientation quadrature and translation operator used for the orientation integrals
 	IdealGasPomega(const FluidMixture*, const FluidComponent*, const SO3quad& quad, const TranslationOperator& trans);

@@ -20,14 +20,23 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <electronic/FluidSolverParams.h>
 
 FluidSolverParams::FluidSolverParams()
-: verboseLog(false),
-linearDielectric(false), linearScreening(false),
-vdwScale(0.75)
+: verboseLog(false), vdwScale(0.75),
+linearDielectric(false), linearScreening(false)
 {
 }
 
 void FluidSolverParams::setPCMparams()
 {
+	//Identify solvent:
+	std::shared_ptr<FluidComponent> solvent;
+	for(const auto& c: components)
+	{	if(c->type==FluidComponent::Solvent)
+		{	if(solvent) die("PCMs currently only support a single solvent component.\n");
+			solvent = c;
+		}
+	}
+	if(!solvent) die("PPCMs require exactly one solvent component - none specified.\n");
+	
 	//Set PCM fit parameters:
 	switch(pcmVariant)
 	{	case PCM_SLSA13:
@@ -47,15 +56,15 @@ void FluidSolverParams::setPCMparams()
 		}
 		case PCM_GLSSA13:
 		{	
-			switch(solventName)
+			switch(solvent->name)
 			{
-				case CHCl3:
+				case FluidComponent::CHCl3:
 				{	nc = 2.4e-05;
 					sigma = 0.6;
 					cavityTension = -9.066e-6;
 					break;
 				}
-				case CCl4:
+				case FluidComponent::CCl4:
 				{	switch(fluidType)
 					{	case FluidLinearPCM:
 							nc = 1.15e-4;
@@ -84,11 +93,11 @@ void FluidSolverParams::setPCMparams()
 						default: //Other fluids do not use these parameters
 							break;
 					}
-					if(solventName != H2O)
+					if(solvent->name != FluidComponent::H2O)
 					{	initWarnings +=
 							"WARNING: PCM variant GLSSA has not been parametrized for this solvent; using bulk\n"
 							"   surface tension as effective cavity tension and water parameters for cavity size.\n";
-						cavityTension = sigmaBulk;
+						cavityTension = solvent->sigmaBulk;
 					}
 					break;
 				}
@@ -102,7 +111,7 @@ void FluidSolverParams::setPCMparams()
 			cavityTension = 0.;
 			if(fluidType == FluidNonlinearPCM)
 				initWarnings += "WARNING: PCM variant LA12/PRA05 has not been parametrized for NonlinearPCM; using LinearPCM fit parameters.\n";
-			if( (fluidType==FluidLinearPCM || fluidType==FluidNonlinearPCM) && solventName != H2O)
+			if( (fluidType==FluidLinearPCM || fluidType==FluidNonlinearPCM) && solvent->name != FluidComponent::H2O)
 				initWarnings += "WARNING: PCM variant LA12/PRA05 has been fit only for H2O; using nc and sigma from H2O fit.\n";
 			break;
 		}
@@ -117,8 +126,8 @@ bool FluidSolverParams::needsVDW() const
 		case FluidNonlinearPCM:
 			return (pcmVariant == PCM_SGA13);
 		case FluidNonlocalPCM:
-		default: //All explicit fluid functionals
+		case FluidClassicalDFT:
+		default:
 			return true;
 	}
 }
-

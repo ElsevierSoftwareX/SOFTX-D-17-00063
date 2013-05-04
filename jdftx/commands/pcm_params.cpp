@@ -58,7 +58,7 @@ struct CommandPcmVariant : public Command
 }
 commandPcmVariant;
 
-
+/*
 EnumStringMap<FluidSolverParams::SolventName> pcmSolventMap
 (
 	FluidSolverParams::H2O,   "H2O",
@@ -107,7 +107,8 @@ commandPcmSolvent;
 
 
 enum PCMparameter
-{	//Fit parameters:
+{	PCMp_lMax, //!< angular momentum truncation in nonlocal PCM
+	//Fit parameters:
 	PCMp_nc, //!< critical density for the PCM cavity shape function
 	PCMp_sigma, //!< smoothing factor for the PCM cavity shape function
 	PCMp_cavityTension, //!< effective surface tension (including dispersion etc.) of the cavity (hartree per bohr^2)
@@ -124,7 +125,8 @@ enum PCMparameter
 	PCMp_Delim
 };
 EnumStringMap<PCMparameter> pcmParamMap
-(	PCMp_nc,            "nc",
+(	PCMp_lMax,          "lMax",
+	PCMp_nc,            "nc",
 	PCMp_sigma,         "sigma",
 	PCMp_cavityTension, "cavityTension",
 	PCMp_epsBulk,       "epsBulk",
@@ -137,7 +139,8 @@ EnumStringMap<PCMparameter> pcmParamMap
 	PCMp_Res,           "Res"
 );
 EnumStringMap<PCMparameter> pcmParamDescMap
-(	PCMp_nc, "critical density for the PCM cavity shape function",
+(	PCMp_lMax, "angular momentum truncation in nonlocal PCM"
+	PCMp_nc, "critical density for the PCM cavity shape function",
 	PCMp_sigma, "smoothing factor for the PCM cavity shape function",
 	PCMp_cavityTension, "effective surface tension (including dispersion etc.) of the cavity (hartree per bohr^2)",
 	PCMp_epsBulk, "bulk dielectric constant",
@@ -172,7 +175,8 @@ struct CommandPcmParams : public Command
 					if(!(fsp.param op val)) throw string(#param " must be " #op " " #val); \
 					break;
 			switch(key)
-			{	READ_AND_CHECK(nc, >, 0.)
+			{	READ_AND_CHECK(lMax, >=, 1)
+				READ_AND_CHECK(nc, >, 0.)
 				READ_AND_CHECK(sigma, >, 0.)
 				READ_AND_CHECK(cavityTension, <, DBL_MAX)
 				READ_AND_CHECK(epsBulk, >, 1.)
@@ -192,6 +196,7 @@ struct CommandPcmParams : public Command
 	void printStatus(Everything& e, int iRep)
 	{	const FluidSolverParams& fsp = e.eVars.fluidParams;
 		#define PRINT(param) logPrintf(" \\\n\t" #param " %lg", fsp.param);
+		PRINT(lMax)
 		PRINT(nc)
 		PRINT(sigma)
 		PRINT(cavityTension)
@@ -249,7 +254,7 @@ struct CommandIonicScreening : public Command
 	}
 }
 commandIonicScreening;
-
+*/
 
 struct CommandPCMnonlinearDebug : public Command
 {
