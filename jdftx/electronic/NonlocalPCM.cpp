@@ -71,8 +71,9 @@ NonlocalPCM::NonlocalPCM(const Everything& e, const FluidSolverParams& fsp)
 	vector3<> pMol = solvent->molecule.getDipole();
 	double alphaTot = 0.;
 	for(const auto& site: solvent->molecule.sites)
-		alphaTot += site->alpha * site->positions.size();
-	double l1prefac = pMol.length_squared() ? sqrt((solvent->epsBulk-solvent->epsInf)*3./pMol.length_squared()) : 0.;
+		if(site->polKernel)
+			alphaTot += pow(site->polKernel(0),2) * site->positions.size();
+	double l1prefac = pMol.length_squared() ? sqrt((solvent->epsBulk - (alphaTot ? solvent->epsInf : 1.))*3./pMol.length_squared()) : 0.;
 	double polPrefac = alphaTot ? sqrt(((l1prefac ? solvent->epsInf : solvent->epsBulk) - 1.)/(4.*M_PI*alphaTot)) : 0.;
 	
 	//Rotational and translational response (includes ionic response):
@@ -122,7 +123,7 @@ NonlocalPCM::NonlocalPCM(const Everything& e, const FluidSolverParams& fsp)
 	//Polarizability response:
 	for(unsigned iSite=0; iSite<solvent->molecule.sites.size(); iSite++)
 	{	const Molecule::Site& site = *(solvent->molecule.sites[iSite]);
-		if(site.alpha)
+		if(site.polKernel)
 		{	std::vector<double> Vsamples(nGradial);
 			for(unsigned iG=0; iG<nGradial; iG++)
 				Vsamples[iG] = polPrefac * site.polKernel(iG*dG);
@@ -271,7 +272,8 @@ double NonlocalPCM::get_Adiel_and_grad(DataGptr& Adiel_rhoExplicitTilde, DataGpt
 		}
 	}
 	for(unsigned iSite=0; iSite<solvent->molecule.sites.size(); iSite++)
-		Adiel_shape += I(Sf[iSite] * J(Adiel_siteShape[iSite]));
+		if(Adiel_siteShape[iSite])
+			Adiel_shape += I(Sf[iSite] * J(Adiel_siteShape[iSite]));
 	
 	//Propagate shape gradients to A_nCavity:
 	DataRptr Adiel_nCavity;

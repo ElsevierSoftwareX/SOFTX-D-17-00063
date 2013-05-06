@@ -51,16 +51,21 @@ struct Molecule
 		RadialFunctionG elecKernel, chargeKernel, polKernel; //!< Electron density, net charge density and polarizability kernels for the sites
 	private:
 		bool initialized;
+		void free();
 	};
 	std::vector< std::shared_ptr<Site> > sites;
 	
+	Molecule(string name=string());
 	void setup(const GridInfo& gInfo);
+	explicit operator bool() const { return initialized; } //!< return whether site has been setup
 	
 	bool isMonoatomic() const; //!< whether it is a monoatomic molecule
 	double getCharge() const; //!< total charge on molecule
 	vector3<> getDipole() const; //!< total dipole moment on molecule
 	double getVhs() const; //!< total exclusion volume
 	std::map<double,int> getBonds() const; //!< get the harmonic sum of radii for spheres in contact, with the multiplicities for each such pair
+private:
+	bool initialized;
 };
 
 #endif // JDFTX_FLUID_MOLECULE_H

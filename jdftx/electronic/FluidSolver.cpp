@@ -204,7 +204,12 @@ public:
 //---------------------------------------------------------------------
 
 FluidSolver::FluidSolver(const Everything& e, const FluidSolverParams& fsp) : e(e), fsp(fsp)
-{	//Check bulk charge balance and get screening prefactor:
+{	//Initialize radial kernels in molecule sites:
+	for(const auto& c: fsp.components)
+		if(!c->molecule)
+			c->molecule.setup(e.gInfo);
+	
+	//Check bulk charge balance and get screening prefactor:
 	double NQ = 0., NQ2 = 0.;
 	for(const auto& c: fsp.components)
 	{	double Qmol = c->molecule.getCharge();

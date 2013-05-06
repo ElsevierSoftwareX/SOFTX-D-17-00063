@@ -22,7 +22,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 FluidSolverParams::FluidSolverParams()
 : verboseLog(false),
 components(components_), solvents(solvents_), cations(cations_), anions(anions_),
-vdwScale(0.75),
+vdwScale(0.75), lMax(2),
 linearDielectric(false), linearScreening(false)
 {
 }

@@ -20,6 +20,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/ErfFMTweight.h>
 #include <fluid/Molecule.h>
 #include <core/Operators.h>
+#include <electronic/ColumnBundle.h>
 
 
 Molecule::Site::Site(string name, int atomicNumber) : name(name), Rhs(0), atomicNumber(atomicNumber), Znuc(0), sigmaNuc(0), Zelec(0), aElec(0), alpha(0), aPol(0), initialized(false)
@@ -27,6 +28,10 @@ Molecule::Site::Site(string name, int atomicNumber) : name(name), Rhs(0), atomic
 }
 
 Molecule::Site::~Site()
+{	free();
+}
+
+void Molecule::Site::free()
 {	if(initialized)
 	{	elecKernel.free();
 		chargeKernel.free();
@@ -42,7 +47,6 @@ Molecule::Site::~Site()
 	}
 }
 
-
 //Fourier transform of cuspless exponential
 inline double cusplessExpTilde(double G, double norm, double a)
 {	double aG = a*G;
@@ -57,8 +61,43 @@ inline double gaussTilde(double G, double norm, double sigma)
 }
 
 void Molecule::Site::setup(const GridInfo& gInfo)
-{
-	//TODO: initialize charge and elec kernels
+{	if(initialized) free();
+	logPrintf("     Initializing site '%s'\n", name.c_str());
+	
+	//Initialize electron density kernel:
+	if(elecFilename.length() || Zelec)
+	{	logPrintf("       Electron density: ");
+		if(elecFilename.length())
+		{	logPrintf("reading from '%s' ...", elecFilename.c_str());
+			//TODO: read from file
+		}
+		else
+		{	logPrintf("cuspless exponential with width %lg and", aElec);
+			elecKernel.init(0, gInfo.dGradial, gInfo.GmaxGrid, cusplessExpTilde, Zelec, aElec);
+		}
+		logPrintf(" norm %lg\n", elecKernel(0));
+	}
+	
+	//Initialize charge kernel:
+	if(elecKernel || Znuc)
+	{	logPrintf("       Charge density: gaussian nuclear width %lg", sigmaNuc);
+		std::vector<double> samples(unsigned(ceil(gInfo.GmaxGrid/gInfo.dGradial))+5, 0.);
+		for(unsigned iG=0; iG<samples.size(); iG++)
+		{	double G = iG * gInfo.dGradial;
+			if(elecKernel) samples[iG] += elecKernel(G);
+			if(Znuc) samples[iG] -= gaussTilde(G, Znuc, sigmaNuc);
+		}
+		chargeKernel.init(0, samples, gInfo.dGradial);
+		logPrintf(" with net site charge %lg\n", chargeKernel(0));
+	}
+	
+	//Initialize polarizability kernel:
+	if(alpha)
+	{	logPrintf("       Polarizability: cuspless exponential with width %lg and", aPol);
+		polKernel.init(0, gInfo.dGradial, gInfo.GmaxGrid, cusplessExpTilde, sqrt(alpha), aPol);
+		logPrintf(" norm %lg\n", pow(polKernel(0),2));
+	}
+	
 	if(Rhs)
 	{	//TODO: Initialize hard sphere kernels
 		//ErfFMTweight erfFMTweight(sphereRadius, sphereSigma);
@@ -143,8 +182,15 @@ void ConvCoupling::setRadialKernel(SiteProperties& s)
 }
 */
 
+Molecule::Molecule(string name) : name(name), initialized(false)
+{
+}
+
 void Molecule::setup(const GridInfo& gInfo)
-{	for(auto& site: sites) if(!*site) site->setup(gInfo);
+{	logPrintf("   Initializing fluid molecule '%s'\n", name.c_str());
+	for(auto& site: sites) site->setup(gInfo);
+	logPrintf("     Net charge: %lg   dipole magnitude: %lg\n", getCharge(), getDipole().length());
+	initialized = true;
 }
 
 

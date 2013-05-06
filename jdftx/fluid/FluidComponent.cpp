@@ -88,6 +88,7 @@ Nnorm(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 			Rvdw = ScalarEOS_eval(T).vdwRadius();
 			Res = 1.42;
 			//Site properties:
+			molecule.name = "H2O";
 			auto siteO = std::make_shared<Molecule::Site>("O",int(AtomicSymbol::O));
 				siteO->Znuc = 6.; siteO->sigmaNuc = sigmaNucO;
 				siteO->Zelec = 6.826; siteO->aElec = 0.35;
@@ -138,6 +139,7 @@ Nnorm(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 			Rvdw = TaoMasonEOS_eval(T, 536.6*Kelvin, 5328.68*KPascal, 0.216, 0.).vdwRadius();
 			Res = 2.22;
 			//Site properties:
+			molecule.name = "CHCl3";
 			auto siteC = std::make_shared<Molecule::Site>("C",int(AtomicSymbol::C));
 				siteC->Znuc = 4.; siteC->sigmaNuc = sigmaNucC;
 				siteC->Zelec = 4.256; siteC->aElec = 0.36;
@@ -175,6 +177,7 @@ Nnorm(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 			Rvdw = TaoMasonEOS_eval(T, 556.4*Kelvin, 4493*KPascal, 0.194, 0.).vdwRadius();
 			Res = 1.90;
 			//Site properties:
+			molecule.name = "CCl4";
 			auto siteC = std::make_shared<Molecule::Site>("C",int(AtomicSymbol::C));
 				siteC->Znuc = 4.; siteC->sigmaNuc = sigmaNucC;
 				siteC->Zelec = 4.980; siteC->aElec = 0.35;
