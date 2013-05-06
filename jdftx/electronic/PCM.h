@@ -35,8 +35,6 @@ public:
 	void dumpDebug(const char* filenamePattern) const; //!< generate fluidDebug text file with common info to all PCMs
 
 protected:
-	std::shared_ptr<FluidComponent> solvent, cation, anion; //!< pointers to fluid components (by type); cation and anion set only for NonlinearPCM
-	
 	EnergyComponents Adiel; //!< PCM energy components
 	DataGptr rhoExplicitTilde; //!< Charge density of explicit (electronic) system
 	DataRptr nCavity, nCavityEx[2]; //!< Cavity determining electron density (or product for nonlocalPCM, and expanded electron densities for the SGA13 variant)

@@ -53,7 +53,12 @@ struct FluidSolverParams
 	double P; //!< pressure
 	bool verboseLog; //!< whether iteration progress is printed for Linear PCM's, and whether sub-iteration progress is printed for others
 	
-	std::vector< std::shared_ptr<FluidComponent> > components; //!< list of fluid components
+	const std::vector< std::shared_ptr<FluidComponent> >& components; //!< list of all fluid components
+	const std::vector< std::shared_ptr<FluidComponent> >& solvents; //!< list of solvent components
+	const std::vector< std::shared_ptr<FluidComponent> >& cations; //!< list of cationic components
+	const std::vector< std::shared_ptr<FluidComponent> >& anions; //!< list of anionic components
+	
+	void addComponent(const std::shared_ptr<FluidComponent>& component); //!< Add component to the component list as well as one of solvents, anions or cations as appropriate
 	
 	//Fit parameters:
 	double nc; //!< critical density for the PCM cavity shape function
@@ -76,6 +81,10 @@ struct FluidSolverParams
 	FluidSolverParams();
 	void setPCMparams(); //!< Set predefined parameters for solventName (for a specific model)
 	bool needsVDW() const; //!< whether pair-potential vdW corrections are required
+	bool ionicScreening() const; //!< whether list of fluid components includes ionic species for Debye screening
+
+private:
+	std::vector< std::shared_ptr<FluidComponent> > components_, solvents_, cations_, anions_; //internal mutable versions of the public component lists
 };
 
 #endif // JDFTX_ELECTRONIC_FLUIDSOLVERPARAMS_H

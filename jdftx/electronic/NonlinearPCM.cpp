@@ -44,22 +44,30 @@ inline double setPreconditioner(double G, double kappaSqByEpsilon, double muByEp
 NonlinearPCM::NonlinearPCM(const Everything& e, const FluidSolverParams& fsp)
 : PCM(e, fsp)
 {
-	pMol = solvent->molecule.getDipole().length();
-	if(cation && anion)
-	{	ionNbulk = cation->Nbulk;
-		ionZ = cation->molecule.getCharge();
-	}
-	else ionNbulk = 0.;
+	const auto& solvent = fsp.solvents[0];
+	pMol = solvent->pMol ? solvent->pMol : solvent->molecule.getDipole().length();
 	
 	//Initialize dielectric evaluation class:
 	dielectricEval = new NonlinearPCMeval::Dielectric(fsp.linearDielectric,
 		fsp.T, solvent->Nbulk, pMol, solvent->epsBulk, solvent->epsInf);
-	
-	//Optionally initialize screening evaluation class:
-	screeningEval = 0;
-	if(ionNbulk)
+
+	//Check and setup ionic screening:
+	if(fsp.cations.size() > 1) die("NonlinearPCM currently only supports a single cationic component.\n");
+	if(fsp.anions.size() > 1) die("NonlinearPCM currently only supports a single anionic component.\n");
+	assert(fsp.anions.size() == fsp.cations.size()); //this should be ensured by charge neutrality check in FluidSolver constructor
+	if(fsp.cations.size())
+	{	//Ensure charge balanced:
+		if(fabs(fsp.cations[0]->molecule.getCharge() + fsp.anions[0]->molecule.getCharge())>1e-12)
+			die("NonlinearPCM currently only supports charge-balanced (Z:Z) electrolytes.\n");
+		ionNbulk = fsp.cations[0]->Nbulk;
+		ionZ = fsp.cations[0]->molecule.getCharge();
 		screeningEval = new NonlinearPCMeval::Screening(fsp.linearScreening,
-			fsp.T, ionNbulk, ionZ, cation->molecule.getVhs(), anion->molecule.getVhs(), solvent->epsBulk);
+			fsp.T, ionNbulk, ionZ, fsp.cations[0]->molecule.getVhs(), fsp.anions[0]->molecule.getVhs(), solvent->epsBulk);
+	}
+	else
+	{	ionNbulk = 0.;
+		screeningEval = 0;
+	}
 	
 	//Initialize preconditioner (for mu channel):
 	double muByEps = (ionZ/pMol) * (1.-dielectricEval->alpha/3); //relative scale between mu and eps

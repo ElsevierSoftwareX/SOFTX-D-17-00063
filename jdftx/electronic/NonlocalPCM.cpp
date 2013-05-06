@@ -47,13 +47,14 @@ struct MultipoleResponse
 template<int l, int m> void set_Ylm(const vector3<> qHat, double& result) { result = Ylm<l,m>(qHat); }
 
 NonlocalPCM::NonlocalPCM(const Everything& e, const FluidSolverParams& fsp)
-: PCM(e, fsp), siteShape(solvent->molecule.sites.size())
+: PCM(e, fsp), siteShape(fsp.solvents[0]->molecule.sites.size())
 {	
 	logPrintf("   Initializing non-local response weight functions:\n");
 	const double dG = 0.02, Gmax = e.gInfo.GmaxGrid;
 	unsigned nGradial = unsigned(ceil(Gmax/dG))+5;
 
 	//Initialize fluid molecule's spherically-averaged electron density kernel:
+	const auto& solvent = fsp.solvents[0];
 	std::vector<double> nFluidSamples(nGradial);
 	for(unsigned i=0; i<nGradial; i++)
 	{	double G = i*dG;
@@ -209,6 +210,7 @@ void NonlocalPCM::set(const DataGptr& rhoExplicitTilde, const DataGptr& nCavityT
 	updateCavity();
 	
 	//Compute site shape functions with the spherical ansatz:
+	const auto& solvent = fsp.solvents[0];
 	for(unsigned iSite=0; iSite<solvent->molecule.sites.size(); iSite++)
 		siteShape[iSite] = I(Sf[iSite] * J(shape));
 	
@@ -240,9 +242,9 @@ double NonlocalPCM::get_Adiel_and_grad(DataGptr& Adiel_rhoExplicitTilde, DataGpt
 	Adiel_rhoExplicitTilde = phiTilde - (-4*M_PI)*Linv(O(rhoExplicitTilde));
 	Adiel["Electrostatic"] = 0.5*dot(Adiel_rhoExplicitTilde, O(rhoExplicitTilde)) //True energy if phi was an exact solution
 		+ 0.5*dot(O(phiTilde), rhoExplicitTilde - hessian(phiTilde)); //First order residual correction (remaining error is second order)
-	
 
 	//The "cavity" gradient is computed by chain rule via the gradient w.r.t to the shape function:
+	const auto& solvent = fsp.solvents[0];
 	DataRptr Adiel_shape; DataRptrCollection Adiel_siteShape(solvent->molecule.sites.size());
 	for(const std::shared_ptr<MultipoleResponse>& resp: response)
 	{	DataRptr& Adiel_s = resp->iSite<0 ? Adiel_shape : Adiel_siteShape[resp->iSite];

@@ -116,11 +116,12 @@ namespace NonlinearPCMeval
 		alpha(3 - 4*M_PI*Np*pMol/(T*(epsBulk-epsInf))),
 		X((epsInf-1.)*T/(4*M_PI*Np*pMol))
 	{	//Check parameter validity:
+		if(!pMol) die("\nNonlinearPCM shluld only be used for polar solvents with non-zero dipole moment.\n");
 		if(alpha < 0.)
 			die("\nCurrent Nonlinear PCM parameters imply negative correlation for dipole rotations.\n"
 				"\tHINT: Reduce solvent molecule dipole or epsInf to fix this.\n");
 		if(linear) logPrintf("   Linear dielectric with epsBulk = %lg.\n", epsBulk);
-		else logPrintf("   Nonlinear dielectric with epsBulk = %lg and epsInf = %lg at T = %lg K.\n", epsBulk, epsInf, T/Kelvin);
+		else logPrintf("   Nonlinear dielectric with epsBulk = %lg and epsInf = %lg with density Nmol = %lg of dipoles pMol = %lg at T = %lg K.\n", epsBulk, epsInf, Nmol, pMol, T/Kelvin);
 	}
 	
 	void DielectricFreeEnergy_sub(size_t iStart, size_t iStop, vector3<const double*> eps, const double* s, vector3<double*> p, double* A, vector3<double*> A_eps, double* A_s, const Dielectric& eval)

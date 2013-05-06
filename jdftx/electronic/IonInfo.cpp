@@ -74,7 +74,7 @@ void IonInfo::setup(const Everything &everything)
 	if(not checkPositions())
 		die("\nAtoms are too close, have overlapping pseudopotential cores.\n\n");
 	
-	if(ionWidth && (e->eVars.fluidParams.fluidType != FluidNone) && e->eVars.fluidSolver->k2factor)
+	if(ionWidth && (e->eVars.fluidParams.fluidType != FluidNone) && e->eVars.fluidParams.ionicScreening())
 		logPrintf("\nCorrection to mu due to finite nuclear width = %lg\n", ionWidthMuCorrection());
 }
 

@@ -58,6 +58,72 @@ struct CommandPcmVariant : public Command
 }
 commandPcmVariant;
 
+enum PCMparameter
+{	PCMp_lMax, //!< angular momentum truncation in nonlocal PCM
+	PCMp_nc, //!< critical density for the PCM cavity shape function
+	PCMp_sigma, //!< smoothing factor for the PCM cavity shape function
+	PCMp_cavityTension, //!< effective surface tension (including dispersion etc.) of the cavity (hartree per bohr^2)
+	PCMp_Delim //!< Delimiter used in parsing:
+};
+EnumStringMap<PCMparameter> pcmParamMap
+(	PCMp_lMax,          "lMax",
+	PCMp_nc,            "nc",
+	PCMp_sigma,         "sigma",
+	PCMp_cavityTension, "cavityTension"
+);
+EnumStringMap<PCMparameter> pcmParamDescMap
+(	PCMp_lMax, "angular momentum truncation in nonlocal PCM",
+	PCMp_nc, "critical density for the PCM cavity shape function",
+	PCMp_sigma, "smoothing factor for the PCM cavity shape function",
+	PCMp_cavityTension, "effective surface tension (including dispersion etc.) of the cavity (hartree per bohr^2)"
+);
+
+struct CommandPcmParams : public Command
+{
+	CommandPcmParams() : Command("pcm-params")
+	{	
+		format = "<key1> <value1> <key2> <value2> ...";
+		comments = "Adjust PCM solvent parameters. Possible keys and value types are:"
+			+ addDescriptions(pcmParamMap.optionList(), linkDescription(pcmParamMap, pcmParamDescMap))
+			+ "\nAny number of these key-value pairs may be specified in any order.";
+		
+		require("fluid-solvent");
+	}
+
+	void process(ParamList& pl, Everything& e)
+	{	FluidSolverParams& fsp = e.eVars.fluidParams;
+		while(true)
+		{	PCMparameter key;
+			pl.get(key, PCMp_Delim, pcmParamMap, "key");
+			#define READ_AND_CHECK(param, op, val) \
+				case PCMp_##param: \
+					pl.get(fsp.param, val, #param, true); \
+					if(!(fsp.param op val)) throw string(#param " must be " #op " " #val); \
+					break;
+			switch(key)
+			{	READ_AND_CHECK(lMax, >=, 1)
+				READ_AND_CHECK(nc, >, 0.)
+				READ_AND_CHECK(sigma, >, 0.)
+				READ_AND_CHECK(cavityTension, <, DBL_MAX)
+				case PCMp_Delim: return; //end of input
+			}
+			#undef READ_AND_CHECK
+		}
+	}
+
+	void printStatus(Everything& e, int iRep)
+	{	const FluidSolverParams& fsp = e.eVars.fluidParams;
+		#define PRINT(param) logPrintf(" \\\n\t" #param " %lg", fsp.param);
+		logPrintf(" \\\n\t lMax %d", fsp.lMax);
+		PRINT(nc)
+		PRINT(sigma)
+		PRINT(cavityTension)
+		#undef PRINT
+	}
+}
+commandPcmParams;
+
+
 /*
 EnumStringMap<FluidSolverParams::SolventName> pcmSolventMap
 (

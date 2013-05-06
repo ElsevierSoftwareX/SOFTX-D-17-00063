@@ -45,36 +45,9 @@ double Sf_calc(double G, const std::vector<double>* rArr)
 
 PCM::PCM(const Everything& e, const FluidSolverParams& fsp): FluidSolver(e,fsp)
 {
-	//Identify solvent:
-	for(const auto& c: fsp.components)
-	{	if(c->type==FluidComponent::Solvent)
-		{	if(solvent) die("PCMs currently only support a single solvent component.\n");
-			solvent = c;
-		}
-		if(c->Nnorm) die("PCMs do not support number constraints on any component.\n");
-	}
-	if(!solvent) die("PPCMs require exactly one solvent component - none specified.\n");
-
-	if(fsp.fluidType==FluidNonlinearPCM)
-	{	//Identify cation and anion and ensure charge-balanced:
-		for(const auto& c: fsp.components)
-			switch(c->type)
-			{	case FluidComponent::Solvent:
-					break;
-				case FluidComponent::Cation:
-					if(cation) die("NonlinearPCM currently only supports a single cationic component.\n");
-					cation = c;
-					break;
-				case FluidComponent::Anion:
-					if(anion) die("NonlinearPCM currently only supports a single anionic component.\n");
-					anion = c;
-					break;
-			}
-		//Ensure charge balanced:
-		assert(anion);
-		if(fabs(cation->molecule.getCharge() + anion->molecule.getCharge())>1e-12)
-			die("NonlinearPCM currently only supports charge-balanced (Z:Z) electrolytes.\n");
-	}
+	if(fsp.solvents.size() < 1) die("PCMs require exactly one solvent component - none specified.\n");
+	if(fsp.solvents.size() > 1) die("PCMs require exactly one solvent component - more than one specified.\n");
+	const auto& solvent = fsp.solvents[0];
 	
 	//Print common info and add relevant citations:
 	logPrintf("   Cavity determined by nc: %lg and sigma: %lg\n", fsp.nc, fsp.sigma);
@@ -149,6 +122,7 @@ void PCM::updateCavity()
 		ShapeFunction::compute(nCavity, shape, fsp.nc, fsp.sigma);
 	
 	//Compute and cache cavitation energy and gradients:
+	const auto& solvent = fsp.solvents[0];
 	switch(fsp.pcmVariant)
 	{	case PCM_SLSA13:
 		case PCM_SGA13:
@@ -262,7 +236,8 @@ void PCM::dumpDebug(const char* filenamePattern) const
 
 	//HACK:
 	if(Sf.size())
-	{	fprintf(fp, "\n\nDispersion model comparison:\n");
+	{	const auto& solvent = fsp.solvents[0];
+		fprintf(fp, "\n\nDispersion model comparison:\n");
 		const DataGptr sTilde = J(fsp.pcmVariant==PCM_SGA13 ? shapeVdw : shape);
 		DataGptrCollection Ntilde(Sf.size());
 		std::vector<int> atomicNumbers(Sf.size());
