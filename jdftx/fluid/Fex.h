@@ -36,8 +36,6 @@ public:
 	Fex(const FluidMixture*, const FluidComponent*);
 	virtual ~Fex() {}
 
-	virtual double get_aDiel() const=0; //! Return the correlation scale-factor for the coulomb term
-
 	//! Return the excess free energy given the reciprocal space site densities
 	//! and accumulate the gradient (functional derivative) w.r.t them in Phi_Ntilde
 	virtual double compute(const DataGptr* Ntilde, DataGptr* Phi_Ntilde) const=0;

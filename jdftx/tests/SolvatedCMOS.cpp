@@ -70,15 +70,6 @@ void setDopantBG(int i, vector3<> r, double rho, double* rhoDopantBG)
 	rhoDopantBG[i] = z<z_Si_Ox1 ? rho : 0;
 }
 
-void setSimpleMolecule(Molecule& molecule, string name, double Q, double Rhs)
-{	molecule.sites.clear();
-	molecule.name = name;
-	auto site = std::make_shared<Molecule::Site>(name);
-		site->Znuc = Q; site->sigmaNuc = (1./6)*Rhs;
-		site->Rhs = Rhs;
-	molecule.sites.push_back(site);
-}
-
 int main(int argc, char** argv)
 {	initSystem(argc, argv);
 
@@ -105,8 +96,8 @@ int main(int argc, char** argv)
 	componentAnion.Nbulk = 0.02*mol/liter;
 	FluidComponent componentHoles(FluidComponent::CustomCation, T, FluidComponent::MeanFieldLJ);
 	FluidComponent componentElectrons(FluidComponent::CustomAnion, T, FluidComponent::MeanFieldLJ);
-	setSimpleMolecule(componentHoles.molecule, "h+", -1., 0*Angstrom);
-	setSimpleMolecule(componentElectrons.molecule, "e-", +1., 0*Angstrom);
+	componentHoles.molecule.setModelMonoatomic("h+", -1., 0*Angstrom);
+	componentElectrons.molecule.setModelMonoatomic("e-", +1., 0*Angstrom);
 
 	FluidMixture fluidMixture(gInfo, T);
 	componentH2O.addToFluidMixture(&fluidMixture);

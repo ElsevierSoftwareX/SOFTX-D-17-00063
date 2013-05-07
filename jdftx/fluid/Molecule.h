@@ -64,6 +64,8 @@ struct Molecule
 	vector3<> getDipole() const; //!< total dipole moment on molecule
 	double getVhs() const; //!< total exclusion volume
 	std::map<double,int> getBonds() const; //!< get the harmonic sum of radii for spheres in contact, with the multiplicities for each such pair
+	
+	void setModelMonoatomic(string name, double Q, double Rhs); //!< set to a simple monoatomic model (useful for debugging, not for actual solvation)
 private:
 	bool initialized;
 };

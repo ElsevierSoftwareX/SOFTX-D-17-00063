@@ -20,8 +20,15 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <electronic/symbols.h>
 #include <fluid/FluidComponent.h>
 #include <fluid/Fex_H2O_ScalarEOS_internal.h>
+#include <fluid/Fex_H2O_ScalarEOS.h>
 #include <fluid/Fex_H2O_BondedVoids.h>
-#include "FluidMixture.h"
+#include <fluid/Fex_H2O_FittedCorrelations.h>
+#include <fluid/Fex_LJ.h>
+#include <fluid/IdealGasMonoatomic.h>
+#include <fluid/IdealGasPsiAlpha.h>
+#include <fluid/IdealGasMuEps.h>
+#include <fluid/IdealGasPomega.h>
+#include <fluid/FluidMixture.h>
 
 //! Vapor pressure from the Antoine equation
 //! @param T temperature (in a.u.)
@@ -66,9 +73,9 @@ FluidComponent::Type FluidComponent::getType(FluidComponent::Name name)
 
 FluidComponent::FluidComponent(FluidComponent::Name name, double T, FluidComponent::Functional functional)
 : name(name), type(getType(name)), functional(functional), representation(MuEps),
-s2quadType(Quad7design_24), quad_nBeta(0), quad_nAlpha(0), quad_nGamma(0), fourierTranslation(false),
+s2quadType(Quad7design_24), quad_nBeta(0), quad_nAlpha(0), quad_nGamma(0), translationMode(LinearSpline),
 epsBulk(1.), Nbulk(0.), pMol(0.), epsInf(1.), Pvap(0.), sigmaBulk(0.), Rvdw(0.), Res(0.),
-Nnorm(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
+Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 {
 	//Nuclear widths = (1./6) vdW radius
 	const double sigmaNucH = (1./6) * 1.20*Angstrom;
@@ -95,6 +102,7 @@ Nnorm(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 				siteO->alpha = 3.73; siteO->aPol = 0.32;
 			molecule.sites.push_back(siteO);
 			auto siteH = std::make_shared<Molecule::Site>("H",int(AtomicSymbol::H));
+				siteH->Znuc = -0.42; siteH->sigmaNuc = 3.;
 				siteH->Znuc = 1.; siteH->sigmaNuc = sigmaNucH;
 				siteH->Zelec = 0.587; siteH->aElec = 0.26;
 				siteH->alpha = 3.30; siteH->aPol = 0.39;
@@ -242,32 +250,64 @@ Nnorm(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 			sigmaBulk = 1.78e-5;
 			break;
 		}
+		case CustomCation:
+		{	Nbulk = 1. * mol/liter;
+			break;
+		}
+		case CustomAnion:
+		{	Nbulk = 1. * mol/liter;
+			break;
+		}
 		default:
-			die("Not yet implemented.\n");
+			throw string("Not yet implemented.");
 	}
 }
 
 void FluidComponent::addToFluidMixture(FluidMixture* fluidMixture)
 {	assert(!idealGas);
-	assert(!fex);
-	//Initialize excess functional:
-// 	switch(params.fluidType)
-// 	{	case FluidFittedCorrelations: fex = new Fex_H2O_FittedCorrelations(*fluidMixture); break;
-// 		case FluidScalarEOS: fex = new Fex_H2O_ScalarEOS(*fluidMixture); break;
-// 		case FluidScalarEOSCustom: fex = new Fex_H2O_Custom(*fluidMixture, params.H2OSites); break;
-// 		case FluidBondedVoids: fex = new Fex_H2O_BondedVoids(*fluidMixture); break;
-// 		case FluidHSIonic: break;
-// 		default: assert(!"This is not a JDFT3 functional");
-// 	}
-	//Initialize ideal gas:
-// 	const int Zn = 2; //Water molecule has Z2 symmetry about dipole axis
-// 	quad = new SO3quad(params.s2quadType, Zn, params.quad_nBeta, params.quad_nAlpha, params.quad_nGamma);
-// 	trans = new TranslationOperatorSpline(e.gInfo, TranslationOperatorSpline::Linear);
-// 	idgas = new IdealGasMuEps(fex, 55.0*mol/liter, *quad, *trans);
+	const GridInfo& gInfo = fluidMixture->gInfo;
+	if(!molecule) molecule.setup(gInfo);
 	
-// 	HardSphereIon* Ion = &params.hSIons[iIon];
-// 	Ion->fex = new Fex_HardSphereIon(*fluidMixture, Ion);
-// 	Ion->idgas = new IdealGasMonoatomic(Ion->fex, Ion->Concentration);
-// 	if (Ion->MixFunc)
-// 		Ion->fmix = new Fmix_IonSolvation(*fluidMixture, *fex, Ion);                                                                   
+	//Setup ideal gas:
+	if(molecule.isMonoatomic())
+	{	idealGas = std::make_shared<IdealGasMonoatomic>(fluidMixture, this);
+	}
+	else
+	{	quad = std::make_shared<SO3quad>(s2quadType, 2, quad_nBeta, quad_nAlpha, quad_nGamma);
+		switch(translationMode)
+		{	case LinearSpline: trans = std::make_shared<TranslationOperatorSpline>(gInfo, TranslationOperatorSpline::Linear); break;
+			case ConstantSpline: trans = std::make_shared<TranslationOperatorSpline>(gInfo, TranslationOperatorSpline::Constant); break;
+			case Fourier: trans = std::make_shared<TranslationOperatorFourier>(gInfo); break;
+		}
+		switch(representation)
+		{	case PsiAlpha: idealGas = std::make_shared<IdealGasPsiAlpha>(fluidMixture, this, *quad, *trans); break;
+			case Pomega: idealGas = std::make_shared<IdealGasPomega>(fluidMixture, this, *quad, *trans); break;
+			case MuEps: idealGas = std::make_shared<IdealGasMuEps>(fluidMixture, this, *quad, *trans); break;
+		}
+	}
+	
+	//Initialize excess functional:
+	switch(functional)
+	{	case ScalarEOS:
+			assert(name == H2O);
+			fex = std::make_shared<Fex_H2O_ScalarEOS>(fluidMixture, this);
+			break;
+		case BondedVoids:
+			assert(name == H2O);
+			fex = std::make_shared<Fex_H2O_BondedVoids>(fluidMixture, this);
+			break;
+		case FittedCorrelations:
+			assert(name == H2O);
+			fex = std::make_shared<Fex_H2O_FittedCorrelations>(fluidMixture, this);
+			break;
+		case MeanFieldLJ:
+			assert(molecule.sites[0]->Rhs > 0.);
+			fex = std::make_shared<Fex_LJ>(fluidMixture, this, epsLJ);
+			break;
+		case FunctionalNone:
+			//No excess functional, or manually created functional (not managed by FLuidComponent)
+			break;
+	}
+
+	fluidMixture->addComponent(this);
 }

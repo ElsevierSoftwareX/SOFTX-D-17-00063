@@ -46,23 +46,23 @@ std::vector<const double*> const_pArr(const double* x, int N)
 
 void fdtestFMT()
 {	double n0=5e-3, n1=1e-2, n2=0.1, n3=0.6, n1v[]={2e-3,-3e-4,5e-3}, n2v[]={1e-2,-5e2,2e-2}, n2m[]={3e-2,2e-2,-2e-2,3e-2,5e-2};
-	double grad_n0=0, grad_n1=0, grad_n2=0, grad_n3=0, grad_n1v[]={0,0,0}, grad_n2v[]={0,0,0,}, grad_n2m[]={0,0,0,0,0};
+	double Phi_n0=0, Phi_n1=0, Phi_n2=0, Phi_n3=0, Phi_n1v[]={0,0,0}, Phi_n2v[]={0,0,0,}, Phi_n2m[]={0,0,0,0,0};
 	phiFMT_calc(0, &n0, &n1, &n2, &n3, const_pArr(n1v,3), const_pArr(n2v,3), const_pArr(n2m,5),
-		&grad_n0, &grad_n1, &grad_n2, &grad_n3, pArr(grad_n1v,3), pArr(grad_n2v,3), pArr(grad_n2m,5));
+		&Phi_n0, &Phi_n1, &Phi_n2, &Phi_n3, pArr(Phi_n1v,3), pArr(Phi_n2v,3), pArr(Phi_n2m,5));
 	#define FDTEST(dir) \
 		printf("FDtesting along " #dir "\n"); \
 		for(double h=1e-9; h<1e-1; h*=10) \
-		{	double grad_n0P=0, grad_n1P=0, grad_n2P=0, grad_n3P=0, grad_n1vP[]={0,0,0}, grad_n2vP[]={0,0,0,}, grad_n2mP[]={0,0,0,0,0}; \
+		{	double Phi_n0P=0, Phi_n1P=0, Phi_n2P=0, Phi_n3P=0, Phi_n1vP[]={0,0,0}, Phi_n2vP[]={0,0,0,}, Phi_n2mP[]={0,0,0,0,0}; \
 			dir += h; \
 			double phiP = phiFMT_calc(0, &n0, &n1, &n2, &n3, const_pArr(n1v,3), const_pArr(n2v,3), const_pArr(n2m,5), \
-					&grad_n0P, &grad_n1P, &grad_n2P, &grad_n3P, pArr(grad_n1vP,3), pArr(grad_n2vP,3), pArr(grad_n2mP,5)); \
+					&Phi_n0P, &Phi_n1P, &Phi_n2P, &Phi_n3P, pArr(Phi_n1vP,3), pArr(Phi_n2vP,3), pArr(Phi_n2mP,5)); \
 			dir -= h; \
-			double grad_n0M=0, grad_n1M=0, grad_n2M=0, grad_n3M=0, grad_n1vM[]={0,0,0}, grad_n2vM[]={0,0,0,}, grad_n2mM[]={0,0,0,0,0}; \
+			double Phi_n0M=0, Phi_n1M=0, Phi_n2M=0, Phi_n3M=0, Phi_n1vM[]={0,0,0}, Phi_n2vM[]={0,0,0,}, Phi_n2mM[]={0,0,0,0,0}; \
 			dir -= h; \
 			double phiM = phiFMT_calc(0, &n0, &n1, &n2, &n3, const_pArr(n1v,3), const_pArr(n2v,3), const_pArr(n2m,5), \
-					&grad_n0M, &grad_n1M, &grad_n2M, &grad_n3M, pArr(grad_n1vM,3), pArr(grad_n2vM,3), pArr(grad_n2mM,5)); \
+					&Phi_n0M, &Phi_n1M, &Phi_n2M, &Phi_n3M, pArr(Phi_n1vM,3), pArr(Phi_n2vM,3), pArr(Phi_n2mM,5)); \
 			dir += h; \
-			printf("\th=%le: Ratio=%.15lf\n", h, (phiP-phiM)/(2*h*grad_##dir)); \
+			printf("\th=%le: Ratio=%.15lf\n", h, (phiP-phiM)/(2*h*Phi_##dir)); \
 		}
 	FDTEST(n0)
 	FDTEST(n1)
@@ -88,108 +88,10 @@ void checkSymmetry(DataRptr a, DataRptr b, const TranslationOperator& T, const v
 	printf("Symmetry error = %le\n", fabs(n1-n2)/fabs(n1));
 }
 
-void setSimpleMolecule(Molecule& molecule, string name, double Q, double Rhs)
-{	molecule.sites.clear();
-	molecule.name = name;
-	auto site = std::make_shared<Molecule::Site>(name);
-		site->Znuc = Q; site->sigmaNuc = (1./6)*Rhs;
-		site->Rhs = Rhs;
-	molecule.sites.push_back(site);
-}
-
-int main(int argc, char** argv)
-{	initSystem(argc, argv);
-
-	//fdtestFMT(); return 0;
-
-	/*
-	SiteProperties Oprop(gInfo, 1.4*Angstrom,0.0*Angstrom, -0.8476, 0);
-	SiteProperties Hprop(gInfo, 0.0*Angstrom,0.0*Angstrom, +0.4238, 0);
-	SiteProperties Vprop(gInfo, 0.3*Angstrom,0.0*Angstrom, 0, 0);
-	double rOH=1*Angstrom, rOV=Oprop.sphereRadius+Vprop.sphereRadius;
-
-	Molecule voidWater("H2O",
-		&Oprop, vector3<>(0,0,0),
-		&Hprop, vector3<>(-1,-1,1)*(rOH/sqrt(3)), vector3<>(1,1,1)*(rOH/sqrt(3)),
-		&Vprop, vector3<>(1,1,-1)*(rOV/sqrt(3)), vector3<>(-1,-1,-1)*(rOV/sqrt(3)),
-		&Vprop, vector3<>(1,-1,1)*(rOV/sqrt(3)), vector3<>(-1,1,1)*(rOV/sqrt(3)) );
-
-	printf("nSites = %d\n", voidWater.nSites);
-	printf("nIndices = %d\n", voidWater.nIndices);
-	for(int i=0; i<voidWater.nSites; i++)
-	{	const Site& s = voidWater.site[i];
-		printf("Site %d: index=%d, radius=%.1lfA, |pos|=%lfA\n",
-			i, s.index, s.prop->sphereRadius/Angstrom, length(s.pos)/Angstrom);
-	}
-	*/
-	//double T=298*Kelvin;
-	//double T=130*Kelvin;
-	double T=75*Kelvin;
-	GridInfo gInfo;
-	//gInfo.S = vector3<int>(64, 64, 64); double hGrid = 0.5;
-	gInfo.S = vector3<int>(128, 128, 128); double hGrid = 0.5;
-	gInfo.R = Diag(hGrid * gInfo.S);
-	gInfo.initialize();
+void testTranslationOperators(const DataRptrCollection& N)
+{	const GridInfo& gInfo = N[0]->gInfo;
 	vector3<> rCenter = gInfo.R * vector3<>(0.5,0.5,0.5);
 
-	double sigmaAr = 3.405*Angstrom, epsAr = 119.8*Kelvin;
-	double sigmaNe = 2.782*Angstrom, epsNe = 3.2135e-3*eV;
-	FluidComponent componentAr(FluidComponent::CustomCation, T, FluidComponent::MeanFieldLJ);
-	setSimpleMolecule(componentAr.molecule, "Ar", +1., sigmaAr);
-	//componentAr.epsLJ = epsAr;
-	componentAr.Nbulk = 2e-3;
-	FluidComponent componentNe(FluidComponent::CustomCation, T, FluidComponent::MeanFieldLJ);
-	setSimpleMolecule(componentNe.molecule, "Ne", -2., sigmaNe);
-	//componentNe.epsLJ = epsNe;
-	componentNe.Nbulk = 1e-3;
-	
-	FluidMixture fluidMixture(gInfo, T);
-	componentAr.addToFluidMixture(&fluidMixture);
-	componentNe.addToFluidMixture(&fluidMixture);
-	Fmix_LJ fmixLJ(&fluidMixture, &componentAr, &componentNe, sqrt(epsAr*epsNe), sigmaAr+sigmaNe);
-
-	fluidMixture.setPressure(1000*Bar);
-
-	const double Radius = 3.;
-	nullToZero(componentAr.idealGas->V[0], gInfo);
-	applyFunc_r(gInfo, initHardSphere, rCenter, Radius, 1, componentAr.idealGas->V[0]->data());
-	componentNe.idealGas->V[0] = componentAr.idealGas->V[0];
-
-	DataRptr rhoExternal(DataR::alloc(gInfo));
-	applyFunc_r(gInfo, initHardSphere, rCenter, Radius, 1.016177/(4*M_PI*pow(Radius,3)/3), rhoExternal->data());
-	fluidMixture.rhoExternal = J(rhoExternal);
-
-	//idNe.set_Nnorm(52);
-
-	//fluidMixture.verboseLog = true;
-	//fluidMixture.initState(0.15);
-	fluidMixture.loadState("random.state");
-
-	MinimizeParams mp;
-	mp.alphaTstart = 3e1;
-	mp.nDim = gInfo.nr*fluidMixture.get_nIndep();
-	mp.nIterations=200;
-	mp.knormThreshold=5e-12;
-	mp.dirUpdateScheme=MinimizeParams::HestenesStiefel;
-	mp.fdTest = true;
-
-	fluidMixture.minimize(mp);
-	fluidMixture.saveState("random.state");
-
-	DataRptrCollection N; DataGptr grad_rhoExternalTilde;
-	fluidMixture.getFreeEnergy(FluidMixture::Outputs(&N, 0, &grad_rhoExternalTilde));
-
-	printf("Qext    = %lf\n", integral(rhoExternal));
-	printf("num(Ar) = %lf\n", integral(N[0]));
-	printf("num(Ne) = %lf\n", integral(N[1]));
-
-	N[0] *= 1.0/componentAr.idealGas->get_Nbulk();
-	N[1] *= 1.0/componentNe.idealGas->get_Nbulk();
-	saveSphericalized(&N[0], N.size(), "random-ArNe", 0.25);
-	DataRptr dTot = I(grad_rhoExternalTilde - 4*M_PI*Linv(O(J(rhoExternal))));
-	saveSphericalized(&dTot, 1, "random-dTot", 0.25);
-
-	//-------- Test translation operators
 	//vector3<> offset = 1.5*gInfo.h[0]-0.5*gInfo.h[1]+0.5*gInfo.h[2];
 	vector3<> offset(0.567, 0.243, -0.7578);
 	//vector3<> offset(1.5, 2.0, 8.0);
@@ -221,4 +123,80 @@ int main(int argc, char** argv)
 	saveSphericalized(&NoffsF[0], NoffsF.size(), "random-ArNe-TF", 0.25, &offsetCenter);
 	saveSphericalized(&NoffsC[0], NoffsC.size(), "random-ArNe-TC", 0.25, &offsetCenter);
 	saveSphericalized(&NoffsL[0], NoffsL.size(), "random-ArNe-TL", 0.25, &offsetCenter);
+
+}
+
+int main(int argc, char** argv)
+{	initSystem(argc, argv);
+
+	//fdtestFMT(); return 0;
+
+	//double T=298*Kelvin;
+	//double T=130*Kelvin;
+	double T=75*Kelvin;
+	GridInfo gInfo;
+	//gInfo.S = vector3<int>(64, 64, 64); double hGrid = 0.5;
+	gInfo.S = vector3<int>(128, 128, 128); double hGrid = 0.5;
+	gInfo.R = Diag(hGrid * gInfo.S);
+	gInfo.initialize();
+	vector3<> rCenter = gInfo.R * vector3<>(0.5,0.5,0.5);
+
+	double RhsAr = 1.702*Angstrom, epsAr = 119.8*Kelvin;
+	double RhsNe = 1.391*Angstrom, epsNe = 3.2135e-3*eV;
+	FluidComponent componentAr(FluidComponent::CustomAnion, T, FluidComponent::MeanFieldLJ);
+	componentAr.molecule.setModelMonoatomic("Ar", +1., RhsAr);
+	componentAr.epsLJ = epsAr;
+	componentAr.Nbulk = 2e-3;
+	FluidComponent componentNe(FluidComponent::CustomCation, T, FluidComponent::MeanFieldLJ);
+	componentNe.molecule.setModelMonoatomic("Ne", -2., RhsNe);
+	componentNe.epsLJ = epsNe;
+	componentNe.Nbulk = 1e-3;
+	
+	FluidMixture fluidMixture(gInfo, T);
+	componentAr.addToFluidMixture(&fluidMixture);
+	componentNe.addToFluidMixture(&fluidMixture);
+	Fmix_LJ fmixLJ(&fluidMixture, &componentAr, &componentNe, sqrt(epsAr*epsNe), RhsAr+RhsNe);
+
+	fluidMixture.setPressure(1000*Bar);
+
+	const double Radius = 3.;
+	nullToZero(componentAr.idealGas->V[0], gInfo);
+	applyFunc_r(gInfo, initHardSphere, rCenter, Radius, 1, componentAr.idealGas->V[0]->data());
+	componentNe.idealGas->V[0] = componentAr.idealGas->V[0];
+
+	DataRptr rhoExternal(DataR::alloc(gInfo));
+	applyFunc_r(gInfo, initHardSphere, rCenter, Radius, 1.016177/(4*M_PI*pow(Radius,3)/3), rhoExternal->data());
+	fluidMixture.rhoExternal = J(rhoExternal);
+
+	//idNe.set_Nnorm(52);
+
+	//fluidMixture.verboseLog = true;
+	fluidMixture.initState(0.15);
+	//fluidMixture.loadState("random.state");
+
+	MinimizeParams mp;
+	mp.alphaTstart = 3e1;
+	mp.nDim = gInfo.nr*fluidMixture.get_nIndep();
+	mp.nIterations=200;
+	mp.knormThreshold=5e-12;
+	mp.dirUpdateScheme=MinimizeParams::HestenesStiefel;
+	mp.fdTest = true;
+
+	fluidMixture.minimize(mp);
+	fluidMixture.saveState("random.state");
+
+	DataRptrCollection N; DataGptr Phi_rhoExternalTilde;
+	fluidMixture.getFreeEnergy(FluidMixture::Outputs(&N, 0, &Phi_rhoExternalTilde));
+
+	printf("Qext    = %lf\n", integral(rhoExternal));
+	printf("num(Ar) = %lf\n", integral(N[0]));
+	printf("num(Ne) = %lf\n", integral(N[1]));
+
+	N[0] *= 1.0/componentAr.idealGas->get_Nbulk();
+	N[1] *= 1.0/componentNe.idealGas->get_Nbulk();
+	saveSphericalized(&N[0], N.size(), "random-ArNe", 0.25);
+	//DataRptr dTot = I(Phi_rhoExternalTilde - 4*M_PI*Linv(O(J(rhoExternal))));
+	//saveSphericalized(&dTot, 1, "random-dTot", 0.25);
+
+	//testTranslationOperators(N);
 }

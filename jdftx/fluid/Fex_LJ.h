@@ -36,11 +36,10 @@ class Fex_LJ : public Fex
 public:
 
 	//! Create a fluid of Lennard-Jones particles with well-depth eps
-	//! The range parameter sigma is set based on the hard sphere radius of the first site (equal to 2^(1/6) times that value)
+	//! The range parameter sigma is set to the hard sphere diameter of the first site
 	Fex_LJ(const FluidMixture*, const FluidComponent*, double eps);
     virtual ~Fex_LJ();
 	
-	double get_aDiel() const { return 1.0; };
 	double compute(const DataGptr* Ntilde, DataGptr* Phi_Ntilde) const;
 	double computeUniform(const double* N, double* Phi_N) const;
 private:

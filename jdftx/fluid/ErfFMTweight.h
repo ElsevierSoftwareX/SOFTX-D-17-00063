@@ -34,16 +34,16 @@ public:
 	}
 
 	//! set the weights at a given G
-	void operator()(int i, double G, double* w0, double* w1, double* w2, double* w3, double* w1v, double* w2m) const
+	void operator()(double G, double& w0, double& w1, double& w2, double& w3, double& w1v, double& w2m) const
 	{	//Weights without saddle point approx:
 		double prefac = exp(-0.5*pow(G*sigma,2));
 		double j0 = bessel_jl(0, G*R);
 		double j2 = bessel_jl(2, G*R);
 		double softness = pow(sigma/R,2);
 		//---
-		w1[i] = R * prefac * j0;
-		w2[i] = 4*M_PI*pow(R,2) * prefac * (j0 + softness*cos(G*R));
-		w3[i] = (4*M_PI*pow(R,3)/3) * prefac * (j0*(1+3*softness) + j2);
+		w1 = R * prefac * j0;
+		w2 = 4*M_PI*pow(R,2) * prefac * (j0 + softness*cos(G*R));
+		w3 = (4*M_PI*pow(R,3)/3) * prefac * (j0*(1+3*softness) + j2);
 
 		//Weights with saddle point approx:
 		prefac = exp(-0.5*pow(sigma ? (r0-R)/sigma : 0.0, 2))/sqrt(c0) * exp(-(0.5/c0)*pow(G*sigma,2));
@@ -52,9 +52,9 @@ public:
 		double j4 = bessel_jl(4, G*r0);
 		softness = pow(sigma/r0,2)/c0;
 		//---
-		w0[i]  = prefac * j0;
-		w1v[i] = -pow(r0,2)/3 * prefac * (j0*(1+3*softness) + j2);
-		w2m[i] = (4*M_PI*pow(r0,4)/15) * prefac * (j0*(1+softness*(10+softness*15)) + 10*j2*(1.0/7+softness) + (3.0/7)*j4);
+		w0  = prefac * j0;
+		w1v = -pow(r0,2)/3 * prefac * (j0*(1+3*softness) + j2);
+		w2m = (4*M_PI*pow(r0,4)/15) * prefac * (j0*(1+softness*(10+softness*15)) + 10*j2*(1.0/7+softness) + (3.0/7)*j4);
 	}
 
 private:

@@ -59,6 +59,7 @@ int main(int argc, char** argv)
 	for(; Dfield<5e-2; Dfield+=2e-3)
 	{
 		mp.energyDiffThreshold = 1e-9 * gInfo.detR * pow(Dfield,2);
+		mp.knormThreshold = 1e-9 * gInfo.detR * Dfield;
 		fluidMixture.Eexternal = vector3<>(0, 0, Dfield);
 
 		if(!stateInitialized) //first iteration

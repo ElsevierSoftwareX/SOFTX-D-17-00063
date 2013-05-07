@@ -38,11 +38,10 @@ void FluidMixture::setPressure(double p)
 {	logPrintf("Adjusting fluid pressure to p=%lf bar\n", p/Bar);
 	//Compute the maximum possible density (core packed limit)
 	double Nguess=0., n3=0.;
+	assert(component.size());
 	for(const FluidComponent* c: component)
 	{	Nguess += c->Nbulk;
-		for(const auto& site: c->molecule.sites)
-			if(site->Rhs)
-				n3 += site->w3(0) * site->positions.size();
+		n3 += c->Nbulk * c->molecule.getVhs();
 	}
 	const double mulStep = 0.99;
 	double Nstart = Nguess;
@@ -274,7 +273,9 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 			Ptot += P[ic];
 
 			//Add the extra correlation contribution within component
-			double corrFac = c.fex->get_aDiel() - 1;
+			double corrFac = (c.epsBulk > c.epsInf) 
+				? 1./(c.epsBulk-1.) - (3.*T) / (4*M_PI * c.idealGas->get_Nbulk() * c.molecule.getDipole().length_squared())
+				: 0.;
 			DataGptr Od_cCorr = corrFac * Od_c;
 			Phi["Coulomb"] += 0.5*dot(rho_c, Od_cCorr);
 			for(unsigned i=0; i<c.molecule.sites.size(); i++)
@@ -295,8 +296,9 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 			if(rhoExternal)
 			{	Phi["ExtCoulomb"] += dot(rhoExternal, Od);
 				Phi_rho += O(-4*M_PI*Linv(O(rhoExternal)));
-				if(outputs.Phi_rhoExternal) *outputs.Phi_rhoExternal = Od;
 			}
+			if(outputs.Phi_rhoExternal)
+				*outputs.Phi_rhoExternal = Od;
 			for(unsigned ic=0; ic<component.size(); ic++)
 			{	const FluidComponent& c = *component[ic];
 				for(unsigned i=0; i<c.molecule.sites.size(); i++)
@@ -389,7 +391,7 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 	}
 
 	//---------- Excess functionals --------------
-	for(const FluidComponent* c: component)
+	for(const FluidComponent* c: component) if(c->fex)
 		Phi["Fex("+c->molecule.name+")"] += c->fex->compute(&Ntilde[c->offsetDensity], &Phi_Ntilde[c->offsetDensity]);
 
 	//--------- Mixing functionals --------------
@@ -468,6 +470,7 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 	{	double Phi_Qfixed = 0.;
 		for(unsigned ic=0; ic<component.size(); ic++)
 			Phi_Qfixed += Phi_Nscale[ic] * Nscale_Qfixed[ic];
+		nullToZero(*outputs.Phi_rhoExternal, gInfo);
 		(*outputs.Phi_rhoExternal)->setGzero(Phi_Qfixed);
 	}
 	
@@ -563,7 +566,7 @@ double FluidMixture::computeUniformEx(const std::vector<double>& Nmol, std::vect
 	}
 
 	//---------- Excess functionals --------------
-	for(const FluidComponent* c: component)
+	for(const FluidComponent* c: component) if(c->fex)
 		phi["Fex("+c->molecule.name+")"] += c->fex->computeUniform(&N[c->offsetDensity], &Phi_N[c->offsetDensity]);
 
 	//--------- Mixing functionals --------------

@@ -99,10 +99,23 @@ void Molecule::Site::setup(const GridInfo& gInfo)
 	}
 	
 	if(Rhs)
-	{	//TODO: Initialize hard sphere kernels
-		//ErfFMTweight erfFMTweight(sphereRadius, sphereSigma);
-		//applyFuncGsq(gInfo, erfFMTweight, w0->data, w1->data, w2->data, w3->data, w1v->data, w2m->data);
+	{	logPrintf("       Hard sphere radius: %lg bohrs\n", Rhs);
+		//Initialize hard sphere weights:
+		ErfFMTweight erfFMTweight(Rhs, 0.);
+		unsigned nGradial = unsigned(ceil(gInfo.GmaxGrid/gInfo.dGradial)+5);
+		std::vector<double> w0(nGradial), w1(nGradial), w2(nGradial), w3(nGradial), w1v(nGradial), w2m(nGradial);
+		for(unsigned iG=0; iG<nGradial; iG++)
+			erfFMTweight(iG*gInfo.dGradial, w0[iG], w1[iG], w2[iG], w3[iG], w1v[iG], w2m[iG]);
+		this->w0.init(0, w0, gInfo.dGradial);
+		this->w1.init(0, w1, gInfo.dGradial);
+		this->w2.init(0, w2, gInfo.dGradial);
+		this->w3.init(0, w3, gInfo.dGradial);
+		this->w1v.init(0, w1v, gInfo.dGradial);
+		this->w2m.init(0, w2m, gInfo.dGradial);
 	}
+	
+	logPrintf("       Positions in reference frame:\n");
+	for(vector3<> r: positions) logPrintf("         [ %+.6lf %+.6lf %+.6lf ]\n", r[0], r[1], r[2]);
 	initialized = true;
 }
 
@@ -220,8 +233,8 @@ vector3<> Molecule::getDipole() const
 double Molecule::getVhs() const
 {	double Vhs = 0;
 	for(const auto& site: sites)
-		if(site->Rhs > 0.)
-			Vhs += (4.*M_PI/3)*pow(site->Rhs,3) * site->positions.size();
+		if(site->w3)
+			Vhs += site->w3(0) * site->positions.size();
 	return Vhs;
 }
 
@@ -245,4 +258,14 @@ std::map<double,int> Molecule::getBonds() const
 		bondEntry.second /= 2;
 	}
 	return bond;
+}
+
+void Molecule::setModelMonoatomic(string name, double Q, double Rhs)
+{	sites.clear();
+	this->name = name;
+	auto site = std::make_shared<Molecule::Site>(name);
+		site->Znuc = Q; site->sigmaNuc = (1./6)*Rhs;
+		site->Rhs = Rhs;
+	sites.push_back(site);
+	site->positions.push_back(vector3<>());
 }

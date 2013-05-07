@@ -78,11 +78,6 @@ Fex_H2O_FittedCorrelations::~Fex_H2O_FittedCorrelations()
 	fex_gauss.free();
 }
 
-
-double Fex_H2O_FittedCorrelations::get_aDiel() const
-{	return 0.959572098592; //Evaluating eps/(eps-1) - epsNI/(epsNI-1) for eps=78.4 and epsNI at STP
-}
-
 #ifdef GPU_ENABLED
 void Fex_H20_FittedCorrelations_gpu(int nr, const double* NObar, const double* NHbar,
 	double* Fex, double* Phi_NObar, double* Phi_NHbar);

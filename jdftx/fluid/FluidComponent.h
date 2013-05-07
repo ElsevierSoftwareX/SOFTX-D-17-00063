@@ -60,9 +60,10 @@ struct FluidComponent
 		FittedCorrelations, //!< H2O functional from [J. Lischner and T. A. Arias, J. Phys. Chem. B 114, 1946 (2010)] (DEPRECATED)
 		BondedVoids, //!< H2O functional from [R. Sundararaman, K. Letchworth-Weaver and T.A. Arias, J. Chem. Phys. 137, 044107 (2012)]
 		MeanFieldLJ, //!< Hard sphere + mean field Lennard-Jones perturbation (useful for ions in solution)
-		Custom //!< Not managed by FluidComponent: fex must be initialized manually before calling addToFluidMixture()
+		FunctionalNone //!< No excess functional beyond hard spheres / electrostatics (or fex may be initialized manually)
 	};
 	const Functional functional;
+	double epsLJ; //!< Lennard-Jones well depth for mean-field LJ functional
 	
 	//!Ideal gas representation (does not affect simple fluids which always use IdealGasMonoatomic)
 	enum Representation
@@ -74,7 +75,13 @@ struct FluidComponent
 	
 	S2quadType s2quadType; //!< Quadrature on S2 that generates the SO(3) quadrature (default: 7design24)
 	unsigned quad_nBeta, quad_nAlpha, quad_nGamma; //!< Subdivisions for euler angle outer-product quadrature
-	bool fourierTranslation; //!< whether to use fourier translation (default: false)
+	
+	enum TranslationMode
+	{	ConstantSpline,
+		LinearSpline, //!< default and recommended
+		Fourier
+	}
+	translationMode; //!< type of translation operator used for sampling rigid molecule geometry
 	
 	//Bulk solvent properties (used by various PCM's):
 	double epsBulk; //!< bulk dielectric constant
@@ -94,6 +101,8 @@ struct FluidComponent
 	FluidComponent(Name name, double T, Functional functional); //!< set default properties
 	
 	//Extra properties when participating in a classical density functional FluidMixture:
+	std::shared_ptr<class SO3quad> quad; //!< orientation quadrature
+	std::shared_ptr<class TranslationOperator> trans; //!< translation operator
 	std::shared_ptr<class IdealGas> idealGas; //!< Indep <-> Density converter and entropy calculator
 	std::shared_ptr<class Fex> fex; //!< Excess functional (in excess to sphere mixture and long-range)
 	unsigned offsetIndep; //!< Offset to the independent variables of this component

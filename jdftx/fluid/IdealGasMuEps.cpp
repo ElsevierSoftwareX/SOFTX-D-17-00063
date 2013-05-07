@@ -111,7 +111,7 @@ void IdealGasMuEps::convertGradients(const DataRptr* mueps, const DataRptr* N,
 	//Loop over orientations:
 	for(int o=0; o<quad.nOrientations(); o++)
 	{	matrix3<> rot = matrixFromEuler(quad.euler(o));
-		vector3<> pVec = rot*vector3<>(0,0,1);
+		vector3<> pVec = rot * pMol;
 		DataRptr Phi_N_o; //gradient w.r.t N_o (as calculated in getDensities)
 		//Collect the contributions from each Phi_N in Phi_N_o
 		for(unsigned i=0; i<molecule.sites.size(); i++)

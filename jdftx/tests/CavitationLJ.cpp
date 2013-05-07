@@ -33,16 +33,6 @@ void initHardSphere(int i, vector3<> r, const vector3<>& r0, double radius, doub
 {	phi[i] = ((r - r0).length() < radius ? height : 0.0);
 }
 
-void setSimpleMolecule(Molecule& molecule, string name, double Q, double Rhs)
-{	molecule.sites.clear();
-	molecule.name = name;
-	auto site = std::make_shared<Molecule::Site>(name);
-		site->Znuc = Q; site->sigmaNuc = (1./6)*Rhs;
-		site->Rhs = Rhs;
-	molecule.sites.push_back(site);
-}
-
-
 int main(int argc, char** argv)
 {
 	if(argc != 3)
@@ -100,7 +90,7 @@ int main(int argc, char** argv)
 	//Lennard Jones fluid w/ THF parameters from
 	//Journal of Solution Chemistry Volume 22, Number 3, 211-217, DOI: 10.1007/BF00649244
 	FluidComponent component(FluidComponent::CustomSolvent, T, FluidComponent::MeanFieldLJ);
-	setSimpleMolecule(component.molecule, "THF", 0., 5.08*Angstrom);
+	component.molecule.setModelMonoatomic("THF", 0., 5.08*Angstrom);
 	//component.epsLJ = 519.0*Kelvin;
 
 	FluidMixture fluidMixture(gInfo, T);

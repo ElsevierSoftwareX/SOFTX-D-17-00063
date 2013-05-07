@@ -43,10 +43,6 @@ Fex_H2O_BondedVoids::~Fex_H2O_BondedVoids()
 {	Ua.free();
 }
 
-double Fex_H2O_BondedVoids::get_aDiel() const
-{	return 1 - T/(7.35e3*Kelvin);
-}
-
 double Fex_H2O_BondedVoids::compute(const DataGptr* Ntilde, DataGptr* Phi_Ntilde) const
 {	DataGptr V = (-kappa * gInfo.nr) * (Ua * Ntilde[0]);
 	Phi_Ntilde[0] += V;

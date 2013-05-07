@@ -37,13 +37,6 @@ Fex_H2O_ScalarEOS::~Fex_H2O_ScalarEOS()
 {	fex_LJatt.free();
 }
 
-
-double Fex_H2O_ScalarEOS::get_aDiel() const
-{
-	return 1 - T/(7.35e3*Kelvin); 
-}
-
-
 #ifdef GPU_ENABLED
 void Fex_H20_ScalarEOS_gpu(int nr, const double* Nbar, double* Fex, double* Phi_Nbar, ScalarEOS_eval eval);
 #endif
