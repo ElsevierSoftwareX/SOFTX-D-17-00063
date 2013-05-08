@@ -298,7 +298,7 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 				Phi_rho += O(-4*M_PI*Linv(O(rhoExternal)));
 			}
 			if(outputs.Phi_rhoExternal)
-				*outputs.Phi_rhoExternal = Od;
+				*outputs.Phi_rhoExternal = (1./gInfo.nr) * Od;
 			for(unsigned ic=0; ic<component.size(); ic++)
 			{	const FluidComponent& c = *component[ic];
 				for(unsigned i=0; i<c.molecule.sites.size(); i++)

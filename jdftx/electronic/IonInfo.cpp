@@ -177,9 +177,6 @@ void IonInfo::update(Energies& ener)
 	ener.E["Epulay"] = dEtot_dnG * 
 		( sqrt(2.0)*pow(e->cntrl.Ecut,1.5)/(3.0*M_PI*M_PI) //ideal nG
 		-  nbasisAvg/e->gInfo.detR ); //actual nG
-	
-	//Update totals:
-	ener.updateTotals();
 }
 
 

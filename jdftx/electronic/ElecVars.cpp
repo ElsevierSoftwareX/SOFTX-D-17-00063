@@ -376,8 +376,6 @@ double ElecVars::elecEnergyAndGrad(Energies& ener, ElecGradient* grad, ElecGradi
 			}
 		}
 		
-	//Energy totals:
-	ener.updateTotals();
 	if(e->cntrl.fixed_n)
 	{	//Compute band structure energy
 		ener.Eband = 0;

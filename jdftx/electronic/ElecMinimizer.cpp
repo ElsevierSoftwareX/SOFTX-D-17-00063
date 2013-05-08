@@ -252,8 +252,8 @@ void elecFluidMinimize(Everything &e)
 
 			//Electron-side:
 			logPrintf("\n-------------------- Electronic Minimization # %d ---------------------\n", iGummel+1); logFlush();
-			double A_JDFT_prev = relevantFreeEnergy(e) + dAfluid; //add dAfluid because change in Adiel not yet included in Etot
-			elecMinimize(e); 
+			double A_JDFT_prev = relevantFreeEnergy(e);
+			elecMinimize(e);
 			double dAelec = relevantFreeEnergy(e) - A_JDFT_prev;
 			logPrintf("\nElectronic minimization # %d changed total free energy by %le\n", iGummel+1, dAelec);
 			

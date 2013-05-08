@@ -36,7 +36,6 @@ struct FluidSolver
 	
 	//! Abstract base class constructor - do not use directly - see FluidSolver::createSolver
 	FluidSolver(const Everything &e, const FluidSolverParams& fsp);
-		
 	virtual ~FluidSolver() {}
 
 	//! Set total explicit charge density and effective electron density to use in cavity formation (i.e. including charge balls)
@@ -46,8 +45,6 @@ struct FluidSolver
 	//! Compute gradients with respect to electronic side variables, and return fluid+coupling free energy
 	//! Any extra forces on explicit ions due to the fluid should be stored in extraForces
 	virtual double get_Adiel_and_grad(DataGptr& Adiel_rhoExplicitTilde, DataGptr& Adiel_nCavityTilde, IonicGradient& extraForces) const =0;
-
-	//grad_rhoExplicitTilde is d_fluid and grad_nCavityTilde is V_cavity
 
 	//! Dump relevant fluid densities (eg. NO and NH) to file(s)
 	//! the provided pattern will have a single %s which may be substituted

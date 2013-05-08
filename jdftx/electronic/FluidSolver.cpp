@@ -62,8 +62,8 @@ private:
 class ConvolutionJDFT : public FluidSolver
 {
 	FluidMixtureJDFT* fluidMixture;
-	ConvCoupling* coupling;
-	VDWCoupling* vdwCoupling;
+	std::shared_ptr<ConvCoupling> coupling;
+	std::shared_ptr<VDWCoupling> vdwCoupling;
 	
 	double Afluid; //cached free energy of fluidMixture (without the coupling part)
 	DataGptr Adiel_rhoExplicitTilde; //cached gradient of free energy of fluidMixture wrt rhoExplicit
@@ -80,27 +80,24 @@ public:
 		//Add the fluid components:
 		for(const auto& c: fsp.components)
 			c->addToFluidMixture(fluidMixture);
-		
+
+		fluidMixture->setPressure(fsp.P);
+
 		//set fluid exCorr
 		logPrintf("\n------- Fluid Exchange Correlation functional -------\n");
 		((ExCorr&)fsp.exCorr).setup(e);
 		
 		//Initialize coupling:
-		coupling = new ConvCoupling(fluidMixture, fsp.exCorr);
+		coupling = std::make_shared<ConvCoupling>(fluidMixture, fsp.exCorr);
 
 		//Create van der Waals mixing functional
 		assert(e.vanDerWaals);
-		vdwCoupling = new VDWCoupling(fluidMixture, e.vanDerWaals,
+		vdwCoupling = std::make_shared<VDWCoupling>(fluidMixture, e.vanDerWaals,
 			e.vanDerWaals->getScaleFactor(fsp.exCorr.getName(), fsp.vdwScale));
-		
-		fluidMixture->setPressure(1.01325*Bar);
 	}
 
 	~ConvolutionJDFT()
-	{	
-		delete coupling;
-		delete vdwCoupling;
-		delete fluidMixture;
+	{	delete fluidMixture;
 	}
 
 	bool needsGummel() { return true; }
@@ -159,16 +156,18 @@ public:
 		//set rhoExplicit for electrostatic coupling
 		fluidMixture->rhoExternal = clone(rhoExplicitTilde);
 		if(!fluidMixture->state.size()) fluidMixture->initState(0.05);
-		if(!isnan(Afluid)) updateCached();
+		if(isnan(Afluid)) updateCached();
 	}
 	
 	void updateCached()
 	{	DataRptrCollection N;
 		FluidMixture::Outputs outputs(&N, 0, &Adiel_rhoExplicitTilde);
-		Ntilde.resize(N.size());
-		for(unsigned i=0; i<N.size(); i++) Ntilde[i] = J(N[i]);
-
+		
 		Afluid = fluidMixture->getFreeEnergy(outputs); //Fluid free energy including coupling
+		Ntilde.resize(N.size());
+		for(unsigned i=0; i<N.size(); i++)
+			Ntilde[i] = J(N[i]);
+		
 		Afluid -= dot(fluidMixture->rhoExternal, O(Adiel_rhoExplicitTilde)); //subtract Electrostatic coupling energy
 		Afluid -= coupling->energyAndGrad(Ntilde); //subtract Nonlinear coupling energy
 		if(vdwCoupling) Afluid -= vdwCoupling->energyAndGrad(Ntilde);
@@ -185,9 +184,10 @@ public:
 	{
 		assert(!isnan(Afluid)); //Ensure that set() was called before calling get_Adiel_and_grad()
 		Adiel_rhoExplicitTilde = clone(this->Adiel_rhoExplicitTilde);
-
+		Adiel_nCavityTilde = 0; //clear previous, accumulate below
+		
 		double Adiel = Afluid
-			+ dot(fluidMixture->rhoExternal,O(Adiel_rhoExplicitTilde))
+			+ dot(fluidMixture->rhoExternal, O(Adiel_rhoExplicitTilde))
 			+ coupling->energyAndGrad(Ntilde, 0, &Adiel_nCavityTilde);
 		if(vdwCoupling)
 		{	extraForces.init(e.iInfo);

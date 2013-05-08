@@ -33,10 +33,10 @@ struct CommandFluid : public Command
 {
 	CommandFluid() : Command("fluid")
 	{
-		format = "[<type>=None] [<Temperature>=298K]";
+		format = "[<type>=None] [<Temperature>=298K] [<Pressure>=1.01325bar]";
 		comments = "Enable joint density functional theory\n"
 			"\t<type> = " + fluidTypeMap.optionList() + "\n"
-			"\t<Temperature> in Kelvin";
+			"\t<Temperature> in Kelvin and <Pressure> in bars.";
 		hasDefault = true;
 		require("coulomb-interaction");
 	}
@@ -47,14 +47,15 @@ struct CommandFluid : public Command
 		if((e.coulombParams.geometry != CoulombParams::Periodic)
 			&& (fsp.fluidType != FluidNone))
 			throw string("Fluids cannot be used with a truncated coulomb interaction");
-		pl.get(fsp.T, 298.0, "Temperature"); fsp.T *= Kelvin; //convert to atomic units
+		pl.get(fsp.T, 298., "Temperature"); fsp.T *= Kelvin; //convert to atomic units
+		pl.get(fsp.P, 1.01325, "Pressure"); fsp.P *= Bar; //convert to atomic units
 	}
 
 	void printStatus(Everything& e, int iRep)
 	{	const FluidSolverParams& fsp = e.eVars.fluidParams;
 		logPrintf("%s", fluidTypeMap.getString(fsp.fluidType));
 		if(fsp.fluidType != FluidNone)
-			logPrintf(" %lf", fsp.T/Kelvin);
+			logPrintf(" %lf %lf", fsp.T/Kelvin, fsp.P/Bar);
 	}
 }
 commandFluid;

@@ -79,15 +79,6 @@ int main(int argc, char** argv)
 	gInfo.R = Diag(hGrid * gInfo.S);
 	gInfo.initialize();
 
-	//----- Setup quadrature for angular integration -----
-	const int Zn = 2; //Water molecule has Z2 symmetry about dipole axis
-	SO3quad quad(QuadOctahedron, Zn);
-
-	//----- Translation operator -----
-	//TranslationOperatorSpline trans(gInfo, TranslationOperatorSpline::Constant);
-	TranslationOperatorSpline trans(gInfo, TranslationOperatorSpline::Linear);
-	//TranslationOperatorFourier trans(gInfo);
-
 	double T = 298*Kelvin;
 	FluidComponent componentH2O(FluidComponent::H2O, T, FluidComponent::ScalarEOS);
 	FluidComponent componentCation(FluidComponent::Sodium, T, FluidComponent::MeanFieldLJ);

@@ -273,7 +273,7 @@ void FluidComponent::addToFluidMixture(FluidMixture* fluidMixture)
 	{	idealGas = std::make_shared<IdealGasMonoatomic>(fluidMixture, this);
 	}
 	else
-	{	quad = std::make_shared<SO3quad>(s2quadType, 2, quad_nBeta, quad_nAlpha, quad_nGamma);
+	{	quad = std::make_shared<SO3quad>(s2quadType, molecule, quad_nBeta, quad_nAlpha, quad_nGamma);
 		switch(translationMode)
 		{	case LinearSpline: trans = std::make_shared<TranslationOperatorSpline>(gInfo, TranslationOperatorSpline::Linear); break;
 			case ConstantSpline: trans = std::make_shared<TranslationOperatorSpline>(gInfo, TranslationOperatorSpline::Constant); break;
