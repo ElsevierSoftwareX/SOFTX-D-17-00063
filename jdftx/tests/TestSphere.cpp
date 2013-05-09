@@ -41,7 +41,6 @@ struct TestSphere
 		double T = 298*Kelvin;
 		FluidComponent component(FluidComponent::H2O, T, FluidComponent::ScalarEOS);
 		component.s2quadType = QuadOctahedron;
-		component.representation = FluidComponent::Pomega;
 		
 		FluidMixture fluidMixture(gInfo, T);
 		component.addToFluidMixture(&fluidMixture);

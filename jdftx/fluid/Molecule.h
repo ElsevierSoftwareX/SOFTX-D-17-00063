@@ -54,9 +54,11 @@ struct Molecule
 		void free();
 	};
 	std::vector< std::shared_ptr<Site> > sites;
-	
+	RadialFunctionG mfKernel; //!< Mean field interaction kernel (with minimum Coulomb self energy while preserving intermolecular interactions)
+
 	Molecule(string name=string());
-	void setup(const GridInfo& gInfo);
+	~Molecule();
+	void setup(const GridInfo& gInfo, double Rmf);
 	explicit operator bool() const { return initialized; } //!< return whether site has been setup
 	
 	bool isMonoatomic() const; //!< whether it is a monoatomic molecule

@@ -266,7 +266,7 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 void FluidComponent::addToFluidMixture(FluidMixture* fluidMixture)
 {	assert(!idealGas);
 	const GridInfo& gInfo = fluidMixture->gInfo;
-	if(!molecule) molecule.setup(gInfo);
+	if(!molecule) molecule.setup(gInfo, Rvdw);
 	
 	//Setup ideal gas:
 	if(molecule.isMonoatomic())

@@ -199,10 +199,21 @@ Molecule::Molecule(string name) : name(name), initialized(false)
 {
 }
 
-void Molecule::setup(const GridInfo& gInfo)
+Molecule::~Molecule()
+{	if(initialized)
+	{	mfKernel.free();
+	}
+}
+
+inline double sphericalShellTilde(double G, double R)
+{	return bessel_jl(0, G*R);
+}
+
+void Molecule::setup(const GridInfo& gInfo, double Rmf)
 {	logPrintf("   Initializing fluid molecule '%s'\n", name.c_str());
 	for(auto& site: sites) site->setup(gInfo);
 	logPrintf("     Net charge: %lg   dipole magnitude: %lg\n", getCharge(), getDipole().length());
+	mfKernel.init(0, gInfo.dGradial, gInfo.GmaxGrid, sphericalShellTilde, Rmf ? Rmf : pow(3*getVhs()/(4.*M_PI), 1./3));
 	initialized = true;
 }
 

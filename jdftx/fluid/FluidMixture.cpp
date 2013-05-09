@@ -1,4 +1,3 @@
-
 /*-------------------------------------------------------------------
 Copyright 2011 Ravishankar Sundararaman, Kendra Letchworth Weaver
 
@@ -254,62 +253,83 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 	std::vector<vector3<> > Phi_P(component.size()); //gradient (partial derivative) w.r.t cell dipole
 
 	//--------- Compute the (scaled) mean field coulomb interaction --------
-	{	DataGptr Od; //total electrostatic potential (with a factor of O)
-		DataGptr rho; //total charge density
+	{	DataGptr rho; //total charge density
+		DataGptr rhoMF; //effective charge density for mean-field term
+		bool needRho = rhoExternal || outputs.Phi_rhoExternal;
 		
 		vector3<> Ptot(0,0,0); //total electric dipole moment in cell
 		for(unsigned ic=0; ic<component.size(); ic++)
 		{	const FluidComponent& c = *component[ic];
-			DataGptr rho_c; //total charge from this fluid component
+			DataGptr rhoMF_c; //mean-field effective charge from this fluid component
 			for(unsigned i=0; i<c.molecule.sites.size(); i++)
 			{	const Molecule::Site& s = *(c.molecule.sites[i]);
 				if(s.chargeKernel)
-					rho_c += s.chargeKernel * Ntilde[c.offsetDensity+i];
+				{	if(needRho) rho += s.chargeKernel * Ntilde[c.offsetDensity+i];
+					rhoMF_c += s.chargeKernel(0) * (c.molecule.mfKernel * Ntilde[c.offsetDensity+i]);
+				}
 			}
-			if(!rho_c) continue;
-			DataGptr Od_c = O(-4*M_PI*Linv(O(rho_c))); //total electrostatic potential from this fluid component
-			Od += Od_c;
-			rho += rho_c;
+			if(!rhoMF_c) continue;
+			rhoMF += rhoMF_c;
 			Ptot += P[ic];
-
-			//Add the extra correlation contribution within component
+			
+			//Compute mean-field scale factor:
 			double corrFac = (c.epsBulk > c.epsInf) 
 				? 1./(c.epsBulk-1.) - (3.*T) / (4*M_PI * c.idealGas->get_Nbulk() * c.molecule.getDipole().length_squared())
 				: 0.;
-			DataGptr Od_cCorr = corrFac * Od_c;
-			Phi["Coulomb"] += 0.5*dot(rho_c, Od_cCorr);
+			
+			//Add the extra correlation contribution within component
+			DataGptr OdMF_cCorr = corrFac * O(-4*M_PI*Linv(O(rhoMF_c))); //correlation potential from this fluid component
+			Phi["Coulomb"] += 0.5*dot(rhoMF_c, OdMF_cCorr);
 			for(unsigned i=0; i<c.molecule.sites.size(); i++)
 			{	const Molecule::Site& s = *(c.molecule.sites[i]);
 				if(s.chargeKernel)
-					Phi_Ntilde[c.offsetDensity+i] += (1./gInfo.dV) * (s.chargeKernel * Od_cCorr);
+					Phi_Ntilde[c.offsetDensity+i] += (s.chargeKernel(0)/gInfo.dV) * (c.molecule.mfKernel * OdMF_cCorr);
 			}
 			Phi["PsqCell"] += 0.5 * 4*M_PI*corrFac * P[ic].length_squared() / gInfo.detR;
 			Phi_P[ic] = 4*M_PI*corrFac * P[ic] / gInfo.detR;
 		}
-		//Now add the true mean-field contribution from Od to all the site densities:
-		if(rho)
-		{	Phi["Coulomb"] += 0.5*dot(rho,Od);
-			Phi["PsqCell"] += 0.5 * 4*M_PI * Ptot.length_squared() / gInfo.detR;
-			Phi["ExtCoulomb"] += dot(-Eexternal, Ptot); //external uniform electric field
-			DataGptr Phi_rho = Od;
-			vector3<> Phi_Ptot = 4*M_PI * Ptot / gInfo.detR - Eexternal;
-			if(rhoExternal)
-			{	Phi["ExtCoulomb"] += dot(rhoExternal, Od);
-				Phi_rho += O(-4*M_PI*Linv(O(rhoExternal)));
+		if(outputs.electricP) *outputs.electricP = Ptot;
+		
+		//External electric field interactions:
+		Phi["ExtCoulomb"] += dot(-Eexternal, Ptot); //external uniform electric field
+		vector3<> Phi_Ptot = -Eexternal;
+		
+		if(rhoMF)
+		{	//External charge interaction:
+			DataGptr Phi_rho;
+			if(needRho)
+			{	if(rhoExternal)
+				{	DataGptr OdExternal = O(-4*M_PI*Linv(O(rhoExternal)));
+					Phi["ExtCoulomb"] += dot(rho, OdExternal);
+					Phi_rho += OdExternal;
+				}
+				if(outputs.Phi_rhoExternal)
+					*outputs.Phi_rhoExternal = -4*M_PI*Linv(O(rho));
 			}
-			if(outputs.Phi_rhoExternal)
-				*outputs.Phi_rhoExternal = (1./gInfo.nr) * Od;
+		
+			//Mean field contributions:
+			DataGptr Phi_rhoMF;
+			{	DataGptr OdMF = O(-4*M_PI*Linv(O(rhoMF))); //mean-field electrostatic potential
+				Phi["Coulomb"] += 0.5*dot(rhoMF, OdMF);
+				Phi_rhoMF += OdMF;
+				
+				Phi["PsqCell"] += 0.5 * 4*M_PI * Ptot.length_squared() / gInfo.detR;
+				Phi_Ptot += 4*M_PI * Ptot / gInfo.detR;
+			}
+			
+			//Propagate gradients:
 			for(unsigned ic=0; ic<component.size(); ic++)
 			{	const FluidComponent& c = *component[ic];
 				for(unsigned i=0; i<c.molecule.sites.size(); i++)
 				{	const Molecule::Site& s = *(c.molecule.sites[i]);
 					if(s.chargeKernel)
-						Phi_Ntilde[c.offsetDensity+i] += (1./gInfo.dV) * (s.chargeKernel * Phi_rho);
+					{	if(Phi_rho) Phi_Ntilde[c.offsetDensity+i] += (1./gInfo.dV) * (s.chargeKernel * Phi_rho);
+						Phi_Ntilde[c.offsetDensity+i] += (s.chargeKernel(0)/gInfo.dV) * (c.molecule.mfKernel * Phi_rhoMF);
+					}
 				}
 				Phi_P[ic] += Phi_Ptot;
 			}
 		}
-		if(outputs.electricP) *outputs.electricP = Ptot;
 	}
 	
 	//--------- Hard sphere mixture and bonding -------------
