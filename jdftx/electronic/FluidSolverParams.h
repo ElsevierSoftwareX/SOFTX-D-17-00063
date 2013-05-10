@@ -51,6 +51,7 @@ struct FluidSolverParams
 	
 	double T; //!< temperature
 	double P; //!< pressure
+	double epsBulkOverride; //!< Override default dielectric constant if non-zero
 	bool verboseLog; //!< whether iteration progress is printed for Linear PCM's, and whether sub-iteration progress is printed for others
 	
 	const std::vector< std::shared_ptr<FluidComponent> >& components; //!< list of all fluid components
@@ -82,7 +83,6 @@ struct FluidSolverParams
 	void setPCMparams(); //!< Set predefined parameters for solventName (for a specific model)
 	bool needsVDW() const; //!< whether pair-potential vdW corrections are required
 	bool ionicScreening() const; //!< whether list of fluid components includes ionic species for Debye screening
-
 private:
 	std::vector< std::shared_ptr<FluidComponent> > components_, solvents_, cations_, anions_; //internal mutable versions of the public component lists
 };

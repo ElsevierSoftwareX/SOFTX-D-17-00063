@@ -27,7 +27,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 
 //! @brief Mixture of fluids that provides the total free energy functional for minimization
 //! Constructing Fex and IdealGas objects require a FluidMixture reference, to which they add themselves.
-//! The FluidMixture object is ready to use after setPressure() is called.
+//! The FluidMixture object is ready to use after initialize() is called.
 class FluidMixture : public Minimizable<DataRptrCollection>
 {
 public:
@@ -43,9 +43,10 @@ public:
 	//! This calculates the bulk equilibrium densities for all components and corresponding chemical potentials
 	//! so as to achieve pressure P with the specified mole fractions.
 	//! The initial guess for the densities is taken from FluidComponent::Nbulk, and this may be altered to select a particular phase
-	void setPressure(double P=1.01325*Bar);
+	//! The dielectric constant for mixtures is estimated as a weighted combination of the components, and may be overriden by a non-zero epsBulkOverride
+	void initialize(double P=1.01325*Bar, double epsBulkOverride=0.);
 
-	unsigned get_nIndep() const { return nIndep; }  //!< get the number of scalar fields used as independent variables
+	unsigned get_nIndep() const { return nIndepIdgas + (polarizable ? 3 : 0); }  //!< get the number of scalar fields used as independent variables
 	unsigned get_nDensities() const { return nDensities; } //!< get the total number of site densities
 
 	const std::vector<const FluidComponent*>& getComponents() const; //!< access component list
@@ -101,10 +102,12 @@ public:
 	double compute(DataRptrCollection* grad);
 
 private:
-	unsigned nIndep; //!< number of scalar fields used as independent variables
+	unsigned nIndepIdgas; //!< number of scalar fields used as independent variables for the component ideal gases
 	unsigned nDensities; //!< total number of site densities
+	bool polarizable;  //!< whether an additional vector field is required due to polarizable components
 	double p;
-
+	double Ceps; //!< dielectric correlation prefactor (initialized by set pressure)
+	
 	std::vector<const FluidComponent*> component; //!< array of fluid components
 	std::vector<const Fmix*> fmixArr; //!< array of mixing functionals
 

@@ -98,7 +98,7 @@ int main(int argc, char** argv)
 
 	double p = 1.01325*Bar;
 	printf("pV = %le\n", p*gInfo.detR);
-	fluidMixture.setPressure(p);
+	fluidMixture.initialize(p);
 
 	//----- Initialize external potential -----
 	printf("\nReading electron density from '%s' ... ", argv[1]); fflush(stdout);

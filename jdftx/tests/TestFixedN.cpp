@@ -74,7 +74,7 @@ int main(int argc, char** argv)
 	component.addToFluidMixture(&fluidMixture);
 	double p = 1.01325*Bar;
 	printf("pV = %le\n", p*gInfo.detR);
-	fluidMixture.setPressure(p);
+	fluidMixture.initialize(p);
 
 	#define geomName "AttractiveWall-3bohr-3.0kT/drop_plane"
 

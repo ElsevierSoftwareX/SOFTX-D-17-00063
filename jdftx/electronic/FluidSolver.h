@@ -32,6 +32,7 @@ struct FluidSolver
 {
 	const Everything& e;
 	const FluidSolverParams& fsp;
+	double epsBulk; //!< bulk dielectric constant of fluid
 	double k2factor; //!< prefactor to screening term (0 => no ionic screening)
 	
 	//! Abstract base class constructor - do not use directly - see FluidSolver::createSolver

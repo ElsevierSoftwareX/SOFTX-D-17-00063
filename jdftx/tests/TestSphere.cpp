@@ -46,7 +46,7 @@ struct TestSphere
 		component.addToFluidMixture(&fluidMixture);
 		double p = 1.01325*Bar;
 		printf("pV = %le\n", p*gInfo.detR);
-		fluidMixture.setPressure(p);
+		fluidMixture.initialize(p);
 
 		//----- Initialize external potential -----
 		double radius = 4.0*Angstrom;

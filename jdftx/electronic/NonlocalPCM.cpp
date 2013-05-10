@@ -73,8 +73,8 @@ NonlocalPCM::NonlocalPCM(const Everything& e, const FluidSolverParams& fsp)
 	for(const auto& site: solvent->molecule.sites)
 		if(site->polKernel)
 			alphaTot += pow(site->polKernel(0),2) * site->positions.size();
-	double l1prefac = pMol.length_squared() ? sqrt((solvent->epsBulk - (alphaTot ? solvent->epsInf : 1.))*3./pMol.length_squared()) : 0.;
-	double polPrefac = alphaTot ? sqrt(((l1prefac ? solvent->epsInf : solvent->epsBulk) - 1.)/(4.*M_PI*alphaTot)) : 0.;
+	double l1prefac = pMol.length_squared() ? sqrt((epsBulk - (alphaTot ? solvent->epsInf : 1.))*3./pMol.length_squared()) : 0.;
+	double polPrefac = alphaTot ? sqrt(((l1prefac ? solvent->epsInf : epsBulk) - 1.)/(4.*M_PI*alphaTot)) : 0.;
 	
 	//Rotational and translational response (includes ionic response):
 	const double bessel_jl_by_Gl_zero[3] = {1., 1./3, 1./15}; //G->0 limit of j_l(G)/G^l
@@ -146,7 +146,8 @@ NonlocalPCM::NonlocalPCM(const Everything& e, const FluidSolverParams& fsp)
 	logPrintf("   Bulk dielectric-constant: %lg", epsBulk);
 	if(k2factor > GzeroTol) logPrintf("   screening-length: %lg bohrs.\n", sqrt(epsBulk/k2factor));
 	else logPrintf("\n");
-	assert(fabs(epsBulk-solvent->epsBulk) < 1e-3); //verify consistency of correlation factors
+	assert(fabs(epsBulk-this->epsBulk) < 1e-3); //verify consistency of correlation factors
+	assert(fabs(k2factor-this->k2factor) < 1e-3); //verify consistency of site charges
 	
 	//Initialize preconditioner kernel:
 	std::vector<double> KkernelSamples(nGradial);
@@ -219,7 +220,7 @@ void NonlocalPCM::set(const DataGptr& rhoExplicitTilde, const DataGptr& nCavityT
 	logFlush();
 
 	//Update the inhomogeneity factor of the preconditioner
-	epsInv = inv(1. + (solvent->epsBulk-1.)*shape);
+	epsInv = inv(1. + (epsBulk-1.)*shape);
 	
 	//Initialize the state if it hasn't been loaded:
 	if(!state) nullToZero(state, e.gInfo);

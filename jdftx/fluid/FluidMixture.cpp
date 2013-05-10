@@ -23,17 +23,18 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/Fex.h>
 #include <electronic/operators.h>
 #include <core/EnergyComponents.h>
+#include <core/DataMultiplet.h>
 
 extern string rigidMoleculeCDFT_ScalarEOSpaper;
 
 FluidMixture::FluidMixture(const GridInfo& gInfo, const double T)
-: gInfo(gInfo), T(T), verboseLog(false), Qtol(1e-12), nIndep(0), nDensities(0)
+: gInfo(gInfo), T(T), verboseLog(false), Qtol(1e-12), nIndepIdgas(0), nDensities(0), polarizable(false)
 {
 	logPrintf("Initializing fluid mixture at T=%lf K ...\n", T/Kelvin);
 	Citations::add("Rigid-molecule density functional theory framework", rigidMoleculeCDFT_ScalarEOSpaper);
 }
 
-void FluidMixture::setPressure(double p)
+void FluidMixture::initialize(double p, double epsBulkOverride)
 {	logPrintf("Adjusting fluid pressure to p=%lf bar\n", p/Bar);
 	//Compute the maximum possible density (core packed limit)
 	double Nguess=0., n3=0.;
@@ -86,6 +87,18 @@ void FluidMixture::setPressure(double p)
 		logPrintf("\tComponent '%s' at bulk density %le bohr^-3\n", c.molecule.name.c_str(), Nmol[ic]);
 	}
 	this->p = p;
+	
+	//Determine dipole correlation factor:
+	double epsBulk = epsBulkOverride;
+	if(!epsBulk)
+	{	epsBulk = 1.;
+		for(const auto& c: component)
+			epsBulk += (c->idealGas->get_Nbulk()/c->pureNbulk(T)) * (c->epsBulk - 1.);
+	}
+	double chiMF = 0.;
+	for(const auto& c: component)
+		chiMF += c->idealGas->get_Nbulk() * (c->molecule.getDipole().length_squared()/(3.*T) + c->molecule.getAlphaTot());
+	Ceps = (epsBulk>1.) ? (1./(4.*M_PI*chiMF) - 1./(epsBulk-1.)) : 0.;
 }
 
 const std::vector<const FluidComponent*>& FluidMixture::getComponents() const
@@ -96,11 +109,13 @@ const std::vector<const FluidComponent*>& FluidMixture::getComponents() const
 void FluidMixture::addComponent(FluidComponent* comp)
 {	component.push_back(comp);
 	//Set the offsets for this component:
-	comp->offsetIndep = nIndep;
+	comp->offsetIndep = nIndepIdgas;
 	comp->offsetDensity = nDensities;
 	//Update the totals, which become the offset for the next component
-	nIndep += comp->idealGas->nIndep;
+	nIndepIdgas += comp->idealGas->nIndep;
 	nDensities += comp->molecule.sites.size();
+	//Update the polarizable flag:
+	polarizable |= bool(comp->molecule.getAlphaTot());
 }
 
 void FluidMixture::addFmix(const Fmix* fmix)
@@ -112,7 +127,7 @@ void FluidMixture::initState(double scale, double Elo, double Ehi)
 {	//Compute the effective nonlinear coupling potential for the uniform fluid:
 	DataRptrCollection Vex(nDensities); //TODO: Interface with the electronic side to get the coupling potential here
 	//Call initState for each component
-	nullToZero(state, gInfo, nIndep);
+	nullToZero(state, gInfo, get_nIndep());
 	logPrintf("\n----- FluidMixture::initState() -----\n");
 	for(const FluidComponent* c: component)
 		c->idealGas->initState(&Vex[c->offsetDensity], &state[c->offsetIndep], scale, Elo, Ehi);
@@ -120,7 +135,7 @@ void FluidMixture::initState(double scale, double Elo, double Ehi)
 }
 
 void FluidMixture::loadState(const char* filename)
-{	nullToZero(state, gInfo, nIndep);
+{	nullToZero(state, gInfo, get_nIndep());
 	loadFromFile(state, filename);
 }
 
@@ -158,7 +173,7 @@ double Qtot(double betaV, double& Qtot_betaV, const std::vector<std::pair<double
 double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollection& Phi_indep, Outputs outputs) const
 {	
 	//logPrintf("indep.size: %d nIndep: %d\n",indep.size(),nIndep);
-	assert(indep.size()==nIndep);
+	assert(indep.size()==get_nIndep());
 
 	//---------- Compute site densities from the independent variables ---------
 	std::vector<vector3<> > P(component.size()); //total dipole moment per component
@@ -260,33 +275,14 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 		vector3<> Ptot(0,0,0); //total electric dipole moment in cell
 		for(unsigned ic=0; ic<component.size(); ic++)
 		{	const FluidComponent& c = *component[ic];
-			DataGptr rhoMF_c; //mean-field effective charge from this fluid component
 			for(unsigned i=0; i<c.molecule.sites.size(); i++)
 			{	const Molecule::Site& s = *(c.molecule.sites[i]);
 				if(s.chargeKernel)
 				{	if(needRho) rho += s.chargeKernel * Ntilde[c.offsetDensity+i];
-					rhoMF_c += s.chargeKernel(0) * (c.molecule.mfKernel * Ntilde[c.offsetDensity+i]);
+					rhoMF += s.chargeKernel(0) * (c.molecule.mfKernel * Ntilde[c.offsetDensity+i]);
 				}
 			}
-			if(!rhoMF_c) continue;
-			rhoMF += rhoMF_c;
 			Ptot += P[ic];
-			
-			//Compute mean-field scale factor:
-			double corrFac = (c.epsBulk > c.epsInf) 
-				? 1./(c.epsBulk-1.) - (3.*T) / (4*M_PI * c.idealGas->get_Nbulk() * c.molecule.getDipole().length_squared())
-				: 0.;
-			
-			//Add the extra correlation contribution within component
-			DataGptr OdMF_cCorr = corrFac * O(-4*M_PI*Linv(O(rhoMF_c))); //correlation potential from this fluid component
-			Phi["Coulomb"] += 0.5*dot(rhoMF_c, OdMF_cCorr);
-			for(unsigned i=0; i<c.molecule.sites.size(); i++)
-			{	const Molecule::Site& s = *(c.molecule.sites[i]);
-				if(s.chargeKernel)
-					Phi_Ntilde[c.offsetDensity+i] += (s.chargeKernel(0)/gInfo.dV) * (c.molecule.mfKernel * OdMF_cCorr);
-			}
-			Phi["PsqCell"] += 0.5 * 4*M_PI*corrFac * P[ic].length_squared() / gInfo.detR;
-			Phi_P[ic] = 4*M_PI*corrFac * P[ic] / gInfo.detR;
 		}
 		if(outputs.electricP) *outputs.electricP = Ptot;
 		
@@ -309,12 +305,12 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 		
 			//Mean field contributions:
 			DataGptr Phi_rhoMF;
-			{	DataGptr OdMF = O(-4*M_PI*Linv(O(rhoMF))); //mean-field electrostatic potential
+			{	DataGptr OdMF = O(-4*M_PI*(1-Ceps)*Linv(O(rhoMF))); //mean-field electrostatic potential
 				Phi["Coulomb"] += 0.5*dot(rhoMF, OdMF);
 				Phi_rhoMF += OdMF;
 				
-				Phi["PsqCell"] += 0.5 * 4*M_PI * Ptot.length_squared() / gInfo.detR;
-				Phi_Ptot += 4*M_PI * Ptot / gInfo.detR;
+				Phi["PsqCell"] += 0.5 * 4*M_PI*(1-Ceps) * Ptot.length_squared() / gInfo.detR;
+				Phi_Ptot += 4*M_PI*(1-Ceps) * Ptot / gInfo.detR;
 			}
 			
 			//Propagate gradients:
@@ -478,7 +474,7 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 	}
 
 	//Propagate gradients from Phi_N to Phi_indep
-	Phi_indep.resize(nIndep);
+	Phi_indep.resize(get_nIndep()); for(unsigned k=nIndepIdgas; k<get_nIndep(); k++) nullToZero(Phi_indep[k], gInfo); //HACK
 	for(unsigned ic=0; ic<component.size(); ic++)
 	{	const FluidComponent& c = *component[ic];
 		c.idealGas->convertGradients(&indep[c.offsetIndep], &N[c.offsetDensity],

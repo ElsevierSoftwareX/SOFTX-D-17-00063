@@ -73,7 +73,7 @@ struct FluidComponent
 	}
 	representation;
 	
-	S2quadType s2quadType; //!< Quadrature on S2 that generates the SO(3) quadrature (default: 7design24)
+	S2quadType s2quadType; //!< Quadrature on S2 that generates the SO(3) quadrature (default: Octahedron)
 	unsigned quad_nBeta, quad_nAlpha, quad_nGamma; //!< Subdivisions for euler angle outer-product quadrature
 	
 	enum TranslationMode
@@ -97,7 +97,9 @@ struct FluidComponent
 	
 	//Molecule geometry and site properties:
 	Molecule molecule;
-	
+
+	double pureNbulk(double T) const; //!< get density of solvent component in the pure phase at temperature T (returns 1 mol/liter for ions)
+
 	FluidComponent(Name name, double T, Functional functional); //!< set default properties
 	
 	//Extra properties when participating in a classical density functional FluidMixture:

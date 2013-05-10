@@ -53,7 +53,7 @@ struct TestGaussian
 		component.addToFluidMixture(&fluidMixture);
 		double p = 1.01325*Bar;
 		printf("pV = %le\n", p*gInfo.detR);
-		fluidMixture.setPressure(p);
+		fluidMixture.initialize(p);
 
 		//Single configuration test:
 		//#define SINGLE_CONFIG

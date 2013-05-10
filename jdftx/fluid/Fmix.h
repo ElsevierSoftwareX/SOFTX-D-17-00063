@@ -48,7 +48,7 @@ public:
 	//! Return the uniform fluid interaction free energy density given the site densities N
 	//! and accumulate the derivative w.r.t them in Phi_N. This MUST return the
 	//! result corresponding to calling compute() with a uniform scalar field.
-	//! This is called several times during FluidMixture::setPressure() to get the desired bulk properties
+	//! This is called several times during FluidMixture::initialize() to get the desired bulk properties
 	//! Note that unlike Fex, all site densities are handed to an Fmix and it
 	//! is Fmix's responsibility to pick up the correct site densities
 	//! (perhaps using FluidMixture::get_offsetDensity())

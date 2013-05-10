@@ -65,6 +65,8 @@ struct Molecule
 	double getCharge() const; //!< total charge on molecule
 	vector3<> getDipole() const; //!< total dipole moment on molecule
 	double getVhs() const; //!< total exclusion volume
+	double getAlphaTot() const; //!< total polarizability
+	
 	std::map<double,int> getBonds() const; //!< get the harmonic sum of radii for spheres in contact, with the multiplicities for each such pair
 	
 	void setModelMonoatomic(string name, double Q, double Rhs); //!< set to a simple monoatomic model (useful for debugging, not for actual solvation)

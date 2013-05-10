@@ -249,6 +249,14 @@ double Molecule::getVhs() const
 	return Vhs;
 }
 
+double Molecule::getAlphaTot() const
+{	double alphaTot = 0.;
+	for(const auto& site: sites)
+		if(site->polKernel)
+			alphaTot += site->polKernel(0) * site->positions.size();
+	return alphaTot;
+}
+
 std::map<double,int> Molecule::getBonds() const
 {	std::map<double,int> bond;
 	for(const auto& site1: sites)

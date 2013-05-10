@@ -43,7 +43,7 @@ public:
 	//! Return the uniform fluid excess free energy density given the site densities N
 	//! and accumulate the derivative w.r.t them in Phi_N. This MUST return the
 	//! result corresponding to calling compute() with a uniform scalar field.
-	//! This is called several times during FluidMixture::setPressure() to get the desired bulk properties
+	//! This is called several times during FluidMixture::initialize() to get the desired bulk properties
 	virtual double computeUniform(const double* N, double* Phi_N) const=0;
 };
 

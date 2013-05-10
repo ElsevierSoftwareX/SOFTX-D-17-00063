@@ -68,13 +68,13 @@ public:
 
 	double get_Nbulk();
 
-	//! Override the values for bulk density and chemical potential set by fluidMixture::setPressure()
+	//! Override the values for bulk density and chemical potential set by fluidMixture::initialize()
 	void overrideBulk(double Nbulk, double mu);
 
 protected:
 	double Nbulk; //!< equilibirum density of this molecule in the bulk mixture
 	double mu; //!< chemical potential for this molecule
-	friend class FluidMixture; //!< FluidMixture::setPressure() adjusts Nbulk and mu to get target pressure and mole fractions
+	friend class FluidMixture; //!< FluidMixture::initialize() adjusts Nbulk and mu to get target pressure and mole fractions
 };
 
 #endif // JDFTX_FLUID_IDEALGAS_H

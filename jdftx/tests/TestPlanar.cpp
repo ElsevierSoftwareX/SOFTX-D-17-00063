@@ -65,7 +65,7 @@ int main(int argc, char** argv)
 	component.addToFluidMixture(&fluidMixture);
 	double p = 1.01325*Bar;
 	printf("pV = %le\n", p*gInfo.detR);
-	fluidMixture.setPressure(p);
+	fluidMixture.initialize(p);
 
 	//Initialize external potential (repel O from a cube)
 	double Dfield = 1.0 * eV/Angstrom;

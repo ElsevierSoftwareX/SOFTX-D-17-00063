@@ -102,7 +102,7 @@ int main(int argc, char** argv)
 	
 	double p = 1.01325*Bar;
 	printf("pV = %le\n", p*gInfo.detR);
-	fluidMixture.setPressure(p);
+	fluidMixture.initialize(p);
 
 	//Set semiconductor properties:
 	DataRptr rhoDopantBG, rhoBuiltin;

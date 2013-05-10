@@ -81,7 +81,7 @@ public:
 		for(const auto& c: fsp.components)
 			c->addToFluidMixture(fluidMixture);
 
-		fluidMixture->setPressure(fsp.P);
+		fluidMixture->initialize(fsp.P, epsBulk);
 
 		//set fluid exCorr
 		logPrintf("\n------- Fluid Exchange Correlation functional -------\n");
@@ -208,7 +208,16 @@ FluidSolver::FluidSolver(const Everything& e, const FluidSolverParams& fsp) : e(
 	for(const auto& c: fsp.components)
 		if(!c->molecule)
 			c->molecule.setup(e.gInfo, c->Rvdw);
-	
+
+	//Set bulk dielectric constant
+	if(fsp.epsBulkOverride)
+		epsBulk = fsp.epsBulkOverride;
+	else
+	{	epsBulk = 1.;
+		for(const auto& c: fsp.components)
+			epsBulk += (c->Nbulk/c->pureNbulk(fsp.T)) * (c->epsBulk - 1.);
+	}
+
 	//Check bulk charge balance and get screening prefactor:
 	double NQ = 0., NQ2 = 0.;
 	for(const auto& c: fsp.components)

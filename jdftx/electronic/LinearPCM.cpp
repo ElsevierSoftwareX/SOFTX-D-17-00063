@@ -36,7 +36,7 @@ LinearPCM::~LinearPCM()
 
 
 DataGptr LinearPCM::hessian(const DataGptr& phiTilde) const
-{	DataRptr epsilon = 1. + (fsp.solvents[0]->epsBulk-1.) * shape;
+{	DataRptr epsilon = 1. + (epsBulk-1.) * shape;
 	DataGptr rhoTilde = divergence(J(epsilon * I(gradient(phiTilde))));  //dielectric term
 	if(k2factor) rhoTilde -= k2factor * J(shape*I(phiTilde)); // screening term
 	return (-1./(4*M_PI)) * rhoTilde;
@@ -59,13 +59,12 @@ void LinearPCM::set(const DataGptr& rhoExplicitTilde, const DataGptr& nCavityTil
 	updateCavity();
 	
 	//Info:
-	const auto& solvent = fsp.solvents[0];
-	logPrintf("\tLinear fluid (dielectric constant: %g", solvent->epsBulk);
-	if(k2factor) logPrintf(", screening length: %g Bohr", sqrt(solvent->epsBulk/k2factor));
+	logPrintf("\tLinear fluid (dielectric constant: %g", epsBulk);
+	if(k2factor) logPrintf(", screening length: %g Bohr", sqrt(epsBulk/k2factor));
 	logPrintf(") occupying %lf of unit cell:", integral(shape)/e.gInfo.detR); logFlush();
 
 	//Update the preconditioner
-	DataRptr epsilon = 1 + (solvent->epsBulk-1)*shape;
+	DataRptr epsilon = 1 + (epsBulk-1)*shape;
 	DataRptr kappaSq = k2factor ? k2factor*shape : 0; //set kappaSq to null pointer if no screening
 	epsInv = inv(epsilon);
 	double kRMS = (kappaSq ? sqrt(sum(kappaSq)/sum(epsilon)) : 0.0);
@@ -95,7 +94,7 @@ double LinearPCM::get_Adiel_and_grad(DataGptr& Adiel_rhoExplicitTilde, DataGptr&
 	
 	//Compute gradient w.r.t shape function:
 	//--- Dielectric contributions:
-	DataRptr Adiel_shape = (-(fsp.solvents[0]->epsBulk-1)/(8*M_PI)) * lengthSquared(I(gradient(phi)));
+	DataRptr Adiel_shape = (-(epsBulk-1)/(8*M_PI)) * lengthSquared(I(gradient(phi)));
 	//--- Screening contributions:
 	if(k2factor)
 	{	DataRptr Iphi = I(phi);

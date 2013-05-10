@@ -70,11 +70,28 @@ FluidComponent::Type FluidComponent::getType(FluidComponent::Name name)
 	}
 }
 
+double FluidComponent::pureNbulk(double T) const
+{	if(type == Solvent)
+	{	switch(name) //TODO: add temperature dependence
+		{	case H2O: return 4.9383e-3;
+			case CHCl3: return 1.109e-3;
+			case CCl4: return 9.205e-4;
+			case DMC: return 1.059e-3;
+			case EC: return 1.339e-3;
+			case PC: return 1.039e-3;
+			case DMF: return 1.153e-3;
+			case THF: return 1.100e-3;
+			default: throw string("Not yet implemented.");
+		}
+	}
+	else return 1.*mol/liter; //ions
+}
+
 
 FluidComponent::FluidComponent(FluidComponent::Name name, double T, FluidComponent::Functional functional)
 : name(name), type(getType(name)), functional(functional), representation(MuEps),
-s2quadType(Quad7design_24), quad_nBeta(0), quad_nAlpha(0), quad_nGamma(0), translationMode(LinearSpline),
-epsBulk(1.), Nbulk(0.), pMol(0.), epsInf(1.), Pvap(0.), sigmaBulk(0.), Rvdw(0.), Res(0.),
+s2quadType(QuadOctahedron), quad_nBeta(0), quad_nAlpha(0), quad_nGamma(0), translationMode(LinearSpline),
+epsBulk(1.), Nbulk(pureNbulk(T)), pMol(0.), epsInf(1.), Pvap(0.), sigmaBulk(0.), Rvdw(0.), Res(0.),
 Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(0)
 {
 	//Nuclear widths = (1./6) vdW radius
@@ -87,7 +104,6 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 	switch(name)
 	{	case H2O:
 		{	epsBulk = 78.4;
-			Nbulk = 4.9383e-3;
 			pMol = 0.92466;
 			epsInf = 1.77;
 			Pvap = antoinePvap(T, 7.31549, 1794.88, -34.764);
@@ -139,7 +155,6 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 		}
 		case CHCl3:
 		{	epsBulk = 4.8069;
-			Nbulk = 1.109e-3;
 			pMol = 0.49091;
 			epsInf = 2.09;
 			Pvap = antoinePvap(T, 5.96288, 1106.94, -54.598);
@@ -177,7 +192,6 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 		}
 		case CCl4:
 		{	epsBulk = 2.238;
-			Nbulk = 9.205e-4;
 			pMol = 0.;
 			epsInf = 2.13;
 			Pvap = antoinePvap(T, 6.10445, 1265.63, -41.002);
@@ -207,7 +221,6 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 		}
 		case DMC:
 		{	epsBulk = 3.1;
-			Nbulk   = 1.059e-3;
 			pMol    = 0.16;
 			epsInf  = 1.87;
 			Pvap = 18*mmHg;
@@ -216,7 +229,6 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 		}
 		case EC:
 		{	epsBulk = 90.5;
-			Nbulk   = 1.339e-3;
 			pMol    = 2.88;
 			epsInf  = 2.00;
 			Pvap = antoinePvap(T, 6.05764, 1705.267, -102.261);
@@ -225,7 +237,6 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 		}
 		case PC:
 		{	epsBulk = 64.0;
-			Nbulk   = 1.039e-3;
 			pMol    = 2.95;
 			epsInf  = 2.02;
 			Pvap = antoinePvap(T, 6.20181, 1788.900, -88.715);
@@ -234,7 +245,6 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 		}
 		case DMF:
 		{	epsBulk = 38.0;
-			Nbulk   = 1.153e-3;
 			pMol    = 2.19;
 			epsInf  = 2.05;
 			Pvap = antoinePvap(T, 6.05286, 1400.86, -76.716);
@@ -243,7 +253,6 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 		}
 		case THF:
 		{	epsBulk = 7.6;
-			Nbulk   = 1.100e-3;
 			pMol    = 0.90;
 			epsInf  = 1.98;
 			Pvap = antoinePvap(T, 6.12142, 1203.11, -46.795);

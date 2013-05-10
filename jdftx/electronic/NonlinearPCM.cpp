@@ -49,7 +49,7 @@ NonlinearPCM::NonlinearPCM(const Everything& e, const FluidSolverParams& fsp)
 	
 	//Initialize dielectric evaluation class:
 	dielectricEval = new NonlinearPCMeval::Dielectric(fsp.linearDielectric,
-		fsp.T, solvent->Nbulk, pMol, solvent->epsBulk, solvent->epsInf);
+		fsp.T, solvent->Nbulk, pMol, epsBulk, solvent->epsInf);
 
 	//Check and setup ionic screening:
 	if(fsp.cations.size() > 1) die("NonlinearPCM currently only supports a single cationic component.\n");
@@ -62,7 +62,7 @@ NonlinearPCM::NonlinearPCM(const Everything& e, const FluidSolverParams& fsp)
 		ionNbulk = fsp.cations[0]->Nbulk;
 		ionZ = fsp.cations[0]->molecule.getCharge();
 		screeningEval = new NonlinearPCMeval::Screening(fsp.linearScreening,
-			fsp.T, ionNbulk, ionZ, fsp.cations[0]->molecule.getVhs(), fsp.anions[0]->molecule.getVhs(), solvent->epsBulk);
+			fsp.T, ionNbulk, ionZ, fsp.cations[0]->molecule.getVhs(), fsp.anions[0]->molecule.getVhs(), epsBulk);
 	}
 	else
 	{	ionNbulk = 0.;
@@ -71,7 +71,7 @@ NonlinearPCM::NonlinearPCM(const Everything& e, const FluidSolverParams& fsp)
 	
 	//Initialize preconditioner (for mu channel):
 	double muByEps = (ionZ/pMol) * (1.-dielectricEval->alpha/3); //relative scale between mu and eps
-	preconditioner.init(0, 0.02, e.gInfo.GmaxGrid, setPreconditioner, k2factor/solvent->epsBulk, muByEps*muByEps);
+	preconditioner.init(0, 0.02, e.gInfo.GmaxGrid, setPreconditioner, k2factor/epsBulk, muByEps*muByEps);
 }
 
 NonlinearPCM::~NonlinearPCM()

@@ -157,7 +157,7 @@ int main(int argc, char** argv)
 	componentNe.addToFluidMixture(&fluidMixture);
 	Fmix_LJ fmixLJ(&fluidMixture, &componentAr, &componentNe, sqrt(epsAr*epsNe), RhsAr+RhsNe);
 
-	fluidMixture.setPressure(1000*Bar);
+	fluidMixture.initialize(1000*Bar);
 
 	const double Radius = 3.;
 	nullToZero(componentAr.idealGas->V[0], gInfo);
