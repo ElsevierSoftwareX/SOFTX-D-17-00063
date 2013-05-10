@@ -59,9 +59,9 @@ void IdealGasMuEps::initState(const DataRptr* Vex, DataRptr* mueps, double scale
 		   molecule.name.c_str(), Emin, Emax, Emean);
 }
 
-void IdealGasMuEps::getDensities(const DataRptr* mueps, DataRptr* N, vector3<>& P) const
+void IdealGasMuEps::getDensities(const DataRptr* mueps, DataRptr* N, DataRptrVec& P) const
 {	for(unsigned i=0; i<molecule.sites.size(); i++) N[i]=0;
-	P = vector3<>(0,0,0);
+	P = 0;
 	double& S = ((IdealGasMuEps*)this)->S;
 	S=0.0;
 	//Loop over orientations:
@@ -81,13 +81,12 @@ void IdealGasMuEps::getDensities(const DataRptr* mueps, DataRptr* N, vector3<>& 
 		S += gInfo.dV*dot(N_o, mueps[0]);
 		for(int k=0; k<3; k++)
 			S += pVec[k] * gInfo.dV*dot(N_o, mueps[k+1]);
-		//Accumulate the cell dipole moments:
-		P += pVec * integral(N_o);
+		//Accumulate the polarization density:
+		if(pMol.length_squared()) P += pVec * N_o;
 	}
 }
 
-double IdealGasMuEps::compute(const DataRptr* mueps, const DataRptr* N, DataRptr* Phi_N,
-	const vector3<>& P, vector3<>& Phi_P, const double Nscale, double& Phi_Nscale) const
+double IdealGasMuEps::compute(const DataRptr* mueps, const DataRptr* N, DataRptr* Phi_N, const double Nscale, double& Phi_Nscale) const
 {	double PhiNI = 0.0;
 	//Add contributions due to external potentials:
 	for(unsigned i=0; i<molecule.sites.size(); i++)
@@ -105,8 +104,7 @@ double IdealGasMuEps::compute(const DataRptr* mueps, const DataRptr* N, DataRptr
 	return PhiNI;
 }
 
-void IdealGasMuEps::convertGradients(const DataRptr* mueps, const DataRptr* N,
-	const DataRptr* Phi_N, vector3<> Phi_P, DataRptr* Phi_mueps, const double Nscale) const
+void IdealGasMuEps::convertGradients(const DataRptr* mueps, const DataRptr* N, const DataRptr* Phi_N, const DataRptrVec& Phi_P, DataRptr* Phi_mueps, const double Nscale) const
 {	for(int k=0; k<4; k++) Phi_mueps[k]=0;
 	//Loop over orientations:
 	for(int o=0; o<quad.nOrientations(); o++)
@@ -122,7 +120,7 @@ void IdealGasMuEps::convertGradients(const DataRptr* mueps, const DataRptr* N,
 		for(int k=0; k<3; k++)
 			Phi_N_o += (T*pVec[k])*mueps[k+1];
 		//Collect the contribution from Phi_P:
-		Phi_N_o += dot(Phi_P, pVec);
+		if(pMol.length_squared()) Phi_N_o += dot(pVec, Phi_P);
 		//Calculate N_o again:
 		DataRptr sum_mueps;
 		sum_mueps += mueps[0];

@@ -168,7 +168,7 @@ int main(int argc, char** argv)
 	applyFunc_r(gInfo, initHardSphere, rCenter, Radius, 1.016177/(4*M_PI*pow(Radius,3)/3), rhoExternal->data());
 	fluidMixture.rhoExternal = J(rhoExternal);
 
-	//idNe.set_Nnorm(52);
+	//componentNe.Nnorm = 52;
 
 	//fluidMixture.verboseLog = true;
 	fluidMixture.initState(0.15);

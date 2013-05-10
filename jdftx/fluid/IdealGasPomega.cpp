@@ -53,9 +53,9 @@ void IdealGasPomega::initState(const DataRptr* Vex, DataRptr* logPomega, double 
 		   molecule.name.c_str(), Emin, Emax, Emean);
 }
 
-void IdealGasPomega::getDensities(const DataRptr* logPomega, DataRptr* N, vector3<>& P) const
+void IdealGasPomega::getDensities(const DataRptr* logPomega, DataRptr* N, DataRptrVec& P) const
 {	for(unsigned i=0; i<molecule.sites.size(); i++) N[i]=0;
-	P = vector3<>(0,0,0);
+	P = 0;
 	double& S = ((IdealGasPomega*)this)->S;
 	S=0.0;
 	//Loop over orientations:
@@ -68,13 +68,12 @@ void IdealGasPomega::getDensities(const DataRptr* logPomega, DataRptr* N, vector
 				trans.taxpy(rot*pos, 1., N_o, N[i]);
 		//Accumulate contributions to the entropy:
 		S += gInfo.dV*dot(N_o, logPomega[o]);
-		//Accumulate the cell dipole moments:
-		P += (rot * pMol) * integral(N_o);
+		//Accumulate the polarization density:
+		if(pMol.length_squared()) P += (rot * pMol) * N_o;
 	}
 }
 
-double IdealGasPomega::compute(const DataRptr* logPomega, const DataRptr* N, DataRptr* Phi_N,
-	const vector3<>& P, vector3<>& Phi_P, const double Nscale, double& Phi_Nscale) const
+double IdealGasPomega::compute(const DataRptr* logPomega, const DataRptr* N, DataRptr* Phi_N, const double Nscale, double& Phi_Nscale) const
 {	double PhiNI = 0.0;
 	//Add contributions due to external potentials:
 	for(unsigned i=0; i<molecule.sites.size(); i++)
@@ -92,8 +91,7 @@ double IdealGasPomega::compute(const DataRptr* logPomega, const DataRptr* N, Dat
 	return PhiNI;
 }
 
-void IdealGasPomega::convertGradients(const DataRptr* logPomega, const DataRptr* N,
-	const DataRptr* Phi_N, vector3<> Phi_P, DataRptr* Phi_logPomega, const double Nscale) const
+void IdealGasPomega::convertGradients(const DataRptr* logPomega, const DataRptr* N, const DataRptr* Phi_N, const DataRptrVec& Phi_P, DataRptr* Phi_logPomega, const double Nscale) const
 {	//Loop over orientations:
 	for(int o=0; o<quad.nOrientations(); o++)
 	{	matrix3<> rot = matrixFromEuler(quad.euler(o));
@@ -105,7 +103,7 @@ void IdealGasPomega::convertGradients(const DataRptr* logPomega, const DataRptr*
 		//Collect the contributions the entropy:
 		Phi_N_o += T*logPomega[o];
 		//Collect the contribution from Phi_P:
-		Phi_N_o += dot(Phi_P, rot * pMol);
+		if(pMol.length_squared()) Phi_N_o += dot(rot * pMol, Phi_P);
 		//Propagate Phi_N_o to Phi_logPomega[o]:
 		Phi_logPomega[o] = (quad.weight(o) * Nbulk * Nscale) * exp(logPomega[o]) * Phi_N_o;
 	}

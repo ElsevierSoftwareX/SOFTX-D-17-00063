@@ -37,20 +37,19 @@ void IdealGasMonoatomic::initState(const DataRptr* Vex, DataRptr* psi, double sc
 	psi[0] = (-scale/T)*Veff;
 }
 
-void IdealGasMonoatomic::getDensities(const DataRptr* psi, DataRptr* N, vector3<>& P) const
+void IdealGasMonoatomic::getDensities(const DataRptr* psi, DataRptr* N, DataRptrVec& P) const
 {	N[0] = Nbulk * exp(psi[0]);
+	P = 0;
 }
 
-double IdealGasMonoatomic::compute(const DataRptr* psi, const DataRptr* N, DataRptr* Phi_N,
-	const vector3<>& P, vector3<>& Phi_P, const double Nscale, double& Phi_Nscale) const
+double IdealGasMonoatomic::compute(const DataRptr* psi, const DataRptr* N, DataRptr* Phi_N, const double Nscale, double& Phi_Nscale) const
 {	DataRptr PhiNI_N = T*psi[0] + V[0] - (mu + T);
 	Phi_N[0] += PhiNI_N;
 	Phi_N[0] += T;
 	return gInfo.dV*dot(N[0], PhiNI_N);
 }
 
-void IdealGasMonoatomic::convertGradients(const DataRptr* psi, const DataRptr* N,
-	const DataRptr* Phi_N, vector3<> Phi_P, DataRptr* Phi_psi, const double Nscale) const
+void IdealGasMonoatomic::convertGradients(const DataRptr* psi, const DataRptr* N, const DataRptr* Phi_N, const DataRptrVec& Phi_P, DataRptr* Phi_psi, const double Nscale) const
 {	Phi_psi[0] = N[0]*Phi_N[0];
 }
 

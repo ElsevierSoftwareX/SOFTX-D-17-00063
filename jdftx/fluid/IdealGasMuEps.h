@@ -33,11 +33,9 @@ public:
 	IdealGasMuEps(const FluidMixture*, const FluidComponent*, const SO3quad& quad, const TranslationOperator& trans);
 
 	void initState(const DataRptr* Vex, DataRptr* mueps, double scale, double Elo, double Ehi) const;
-	void getDensities(const DataRptr* mueps, DataRptr* N, vector3<>& P) const;
-	double compute(const DataRptr* mueps, const DataRptr* N, DataRptr* Phi_N,
-		const vector3<>& P, vector3<>& Phi_P, const double Nscale, double& Phi_Nscale) const;
-	void convertGradients(const DataRptr* mueps, const DataRptr* N,
-		const DataRptr* Phi_N, vector3<> Phi_P, DataRptr* Phi_mueps, const double Nscale) const;
+	void getDensities(const DataRptr* mueps, DataRptr* N, DataRptrVec& P) const;
+	double compute(const DataRptr* mueps, const DataRptr* N, DataRptr* Phi_N, const double Nscale, double& Phi_Nscale) const;
+	void convertGradients(const DataRptr* mueps, const DataRptr* N, const DataRptr* Phi_N, const DataRptrVec& Phi_P, DataRptr* Phi_mueps, const double Nscale) const;
 
 private:
 	const SO3quad& quad; //!< quadrature for orientation integral

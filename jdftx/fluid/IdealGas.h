@@ -22,6 +22,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <fluid/Molecule.h>
 #include <core/DataCollection.h>
+#include <core/DataMultiplet.h>
 class FluidMixture;
 class FluidComponent;
 
@@ -37,8 +38,6 @@ public:
 	DataRptrCollection V; //!< external site potentials
 
 	//! Initialize and register to be used with excess functional fex in its fluidMixture
-	//! xBulk is the mole fraction of this component in the bulk
-	//! (If all the mole fractions don't add to 1, they will be normalized to do so)
 	IdealGas(int nIndep, const FluidMixture*, const FluidComponent*);
 	virtual ~IdealGas() {}
 
@@ -48,23 +47,20 @@ public:
 	//! This would also be a good place to logPrintf useful statistics about the potential for debugging
 	virtual void initState(const DataRptr* Vex, DataRptr* indep, double scale, double Elo=-DBL_MAX, double Ehi=+DBL_MAX) const=0;
 
-	//! Given the independent variables indep, compute the site densities N and the cell dipole moment P
-	virtual void getDensities(const DataRptr* indep, DataRptr* N, vector3<>& P) const=0;
+	//! Given the independent variables indep, compute the site densities N and polarization density P
+	virtual void getDensities(const DataRptr* indep, DataRptr* N, DataRptrVec& P) const=0;
 
 	//! Return the ideal gas free energy PhiNI = T Int N - T S + (V-mu).N (where S is implementation dependent)
 	//! and accumulate the gradients w.r.t the site densities
-	//! Also accumulate the gradient w.r.t cell dipole moment, Phi_P, given P (only required for multipole based ideal gases)
 	//! Nscale is the factor by which the site densities/moments were scaled after getDensities() in order
 	//! to implement fixed N / charge neutrality. Accumulate explicit gradients of PhiNI w.r.t Nscale in Phi_Nscale;
 	//! the implicit dependence through N is handled by FluidMixture.
-	virtual double compute(const DataRptr* indep, const DataRptr* N, DataRptr* Phi_N,
-		const vector3<>& P, vector3<>& Phi_P, const double Nscale, double& Phi_Nscale) const=0;
+	virtual double compute(const DataRptr* indep, const DataRptr* N, DataRptr* Phi_N, const double Nscale, double& Phi_Nscale) const=0;
 
 	//! Compute Phi_indep, the total gradients w.r.t indep, given th egradients of the entire
-	//! functional w.r.t site densities, Phi_N,  and total cell dipole moment Phi_P.
+	//! functional w.r.t site densities, Phi_N,  and polarization density Phi_P.
 	//! Nscale will be the same as in compute()
-	virtual void convertGradients(const DataRptr* indep, const DataRptr* N,
-		const DataRptr* Phi_N, vector3<> Phi_P, DataRptr* Phi_indep, const double Nscale) const=0;
+	virtual void convertGradients(const DataRptr* indep, const DataRptr* N, const DataRptr* Phi_N, const DataRptrVec& Phi_P, DataRptr* Phi_indep, const double Nscale) const=0;
 
 	double get_Nbulk();
 

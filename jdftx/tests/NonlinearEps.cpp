@@ -71,8 +71,10 @@ int main(int argc, char** argv)
 		fluidMixture.minimize(mp);
 
 		DataRptrCollection N; vector3<> electricP;
+		fluidMixture.verboseLog = true;
 		fluidMixture.getFreeEnergy(FluidMixture::Outputs(&N, &electricP));
-
+		fluidMixture.verboseLog = false;
+		
 		double nTyp = integral(N[0])/gInfo.detR;
 		double pTyp = electricP[2]/gInfo.detR;
 

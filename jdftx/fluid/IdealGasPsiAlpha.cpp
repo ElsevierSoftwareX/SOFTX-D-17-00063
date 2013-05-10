@@ -23,7 +23,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 
 
 IdealGasPsiAlpha::IdealGasPsiAlpha(const FluidMixture* fluidMixture, const FluidComponent* comp, const SO3quad& quad, const TranslationOperator& trans)
-: IdealGas(comp->molecule.sites.size(),fluidMixture,comp), quad(quad), trans(trans)
+: IdealGas(comp->molecule.sites.size(),fluidMixture,comp), quad(quad), trans(trans), pMol(molecule.getDipole())
 {
 }
 
@@ -55,8 +55,9 @@ void IdealGasPsiAlpha::initState(const DataRptr* Vex, DataRptr* psi, double scal
 	for(unsigned i=0; i<molecule.sites.size(); i++) psi[i] = (-scale/T)*Veff[i];
 }
 
-void IdealGasPsiAlpha::getDensities(const DataRptr* psi, DataRptr* N, vector3<>& P) const
+void IdealGasPsiAlpha::getDensities(const DataRptr* psi, DataRptr* N, DataRptrVec& P) const
 {	for(unsigned i=0; i<molecule.sites.size(); i++) N[i]=0;
+	P = 0;
 	//Loop over orientations:
 	for(int o=0; o<quad.nOrientations(); o++)
 	{	matrix3<> rot = matrixFromEuler(quad.euler(o));
@@ -70,11 +71,12 @@ void IdealGasPsiAlpha::getDensities(const DataRptr* psi, DataRptr* N, vector3<>&
 		for(unsigned i=0; i<molecule.sites.size(); i++)
 			for(vector3<> pos: molecule.sites[i]->positions)
 				trans.taxpy(rot*pos, 1., N_o, N[i]);
+		//Accumulate the polarization density:
+		if(pMol.length_squared()) P += (rot * pMol) * N_o;
 	}
 }
 
-double IdealGasPsiAlpha::compute(const DataRptr* psi, const DataRptr* N, DataRptr* Phi_N,
-	const vector3<>& P, vector3<>& Phi_P, const double Nscale, double& Phi_Nscale) const
+double IdealGasPsiAlpha::compute(const DataRptr* psi, const DataRptr* N, DataRptr* Phi_N, const double Nscale, double& Phi_Nscale) const
 {	double PhiNI = 0.0;
 	for(unsigned i=0; i<molecule.sites.size(); i++)
 	{	DataRptr PhiNI_Ni = T*psi[i] + V[i];
@@ -91,8 +93,7 @@ double IdealGasPsiAlpha::compute(const DataRptr* psi, const DataRptr* N, DataRpt
 	return PhiNI;
 }
 
-void IdealGasPsiAlpha::convertGradients(const DataRptr* psi, const DataRptr* N,
-	const DataRptr* Phi_N, vector3<> Phi_P, DataRptr* Phi_psi, const double Nscale) const
+void IdealGasPsiAlpha::convertGradients(const DataRptr* psi, const DataRptr* N, const DataRptr* Phi_N, const DataRptrVec& Phi_P, DataRptr* Phi_psi, const double Nscale) const
 {
 	for(unsigned i=0; i<molecule.sites.size(); i++) Phi_psi[i]=0;
 	//Loop over orientations:
@@ -103,6 +104,8 @@ void IdealGasPsiAlpha::convertGradients(const DataRptr* psi, const DataRptr* N,
 		for(unsigned i=0; i<molecule.sites.size(); i++)
 			for(vector3<> pos: molecule.sites[i]->positions)
 				trans.taxpy(-rot*pos, 1., Phi_N[i], Phi_N_o);
+		//Collect the contribution from Phi_P:
+		if(pMol.length_squared()) Phi_N_o += dot(rot * pMol, Phi_P);
 		//Calculate N_o again (with Nscale this time):
 		DataRptr sum_psi;
 		for(unsigned i=0; i<molecule.sites.size(); i++)
