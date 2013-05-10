@@ -144,8 +144,8 @@ void FluidMixture::saveState(const char* filename) const
 }
 
 FluidMixture::Outputs::Outputs(DataRptrCollection* N, vector3<>* electricP,
-	DataGptr* Phi_rhoExternal, DataRptrCollection* psiEff)
-:N(N),electricP(electricP),Phi_rhoExternal(Phi_rhoExternal),psiEff(psiEff)
+	DataGptr* Phi_rhoExternal, DataRptrCollection* psiEff, EnergyComponents* Phi)
+:N(N),electricP(electricP),Phi_rhoExternal(Phi_rhoExternal),psiEff(psiEff),Phi(Phi)
 {
 }
 
@@ -493,7 +493,8 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 	Phi["+pV"] += p * gInfo.detR; //background correction
 
 	if(verboseLog) Phi.print(globalLog, true, "\t\t\t\t%15s = %25.16lf\n");
-
+	if(outputs.Phi) *(outputs.Phi) = Phi;
+	
 	Phi_indep *= gInfo.dV; //convert functional derivative to partial derivative
 	return Phi;
 }

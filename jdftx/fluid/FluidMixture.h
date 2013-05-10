@@ -24,6 +24,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/Fmix.h>
 #include <core/Units.h>
 #include <core/Minimize.h>
+#include <core/EnergyComponents.h>
 
 //! @brief Mixture of fluids that provides the total free energy functional for minimization
 //! Constructing Fex and IdealGas objects require a FluidMixture reference, to which they add themselves.
@@ -77,10 +78,11 @@ public:
 		vector3<>* electricP; //!< total electric dipole moment in cell (useful only with multipole-based IdealGas's)
 		DataGptr* Phi_rhoExternal; //!< derivative of free energy w.r.t rhoExternal
 		DataRptrCollection* psiEff; //!< Estimate ideal gas effective potentials (useful only when no electric field or potential on non-indep sites)
+		EnergyComponents* Phi; //!< retrieve fluid energy components
 		
 		//! initialize all the above to null
 		Outputs( DataRptrCollection* N=0, vector3<>* electricP=0,
-			DataGptr* Phi_rhoExternal=0, DataRptrCollection* psiEff=0);
+			DataGptr* Phi_rhoExternal=0, DataRptrCollection* psiEff=0, EnergyComponents* Phi=0);
 	};
 
 	//! @brief Free energy and gradient evaluation
