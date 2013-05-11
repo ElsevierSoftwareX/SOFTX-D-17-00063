@@ -38,7 +38,7 @@ public:
 	vector3<> Eexternal; //!< External uniform electric field
 
 	FluidMixture(const GridInfo& gInfo, const double T=298*Kelvin);
-	virtual ~FluidMixture() {}
+	virtual ~FluidMixture();
 
 	//! Call after initializing and adding all the components of the fluid mixture
 	//! This calculates the bulk equilibrium densities for all components and corresponding chemical potentials
@@ -115,6 +115,9 @@ private:
 	std::vector<const FluidComponent*> component; //!< array of fluid components
 	std::vector<const Fmix*> fmixArr; //!< array of mixing functionals
 
+	std::vector<double> Kindep; //!< preconditioner weight for components
+	double Keps; //!< preconditioner weight for polarizability independent variable
+	
 	void addComponent(FluidComponent*); //!< Called by FluidComponent::addToFluidMixture() to add a component
 	friend class FluidComponent;
 

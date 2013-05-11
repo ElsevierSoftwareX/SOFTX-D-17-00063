@@ -111,7 +111,6 @@ struct TestGaussian
 				MinimizeParams mp;
 				mp.dirUpdateScheme = MinimizeParams::HestenesStiefel;
 				mp.linminMethod = MinimizeParams::Cubic;
-				mp.alphaTstart = 3e4;
 				mp.nDim = gInfo.nr * fluidMixture.get_nIndep();
 				mp.energyLabel = "Phi";
 				mp.nIterations=200;

@@ -49,7 +49,6 @@ int main(int argc, char** argv)
 	fluidMixture.initialize(p);
 
 	MinimizeParams mp;
-	mp.alphaTstart = 3e5;
 	mp.nDim = gInfo.nr * fluidMixture.get_nIndep();
 	mp.nIterations=200;
 

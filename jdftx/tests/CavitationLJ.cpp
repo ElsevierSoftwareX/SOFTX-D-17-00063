@@ -123,7 +123,6 @@ int main(int argc, char** argv)
 	fluidMixture.initState(0.15);
 
 	MinimizeParams mp;
-	mp.alphaTstart = 3e1;
 	mp.nDim = gInfo.nr;
 	mp.nIterations=200;
 	mp.knormThreshold=1e-11;

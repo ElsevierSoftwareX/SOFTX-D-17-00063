@@ -73,7 +73,6 @@ int main(int argc, char** argv)
 
 	//----- FDtest and CG -----
 	MinimizeParams mp;
-	mp.alphaTstart = 3e4;
 	mp.nDim = gInfo.nr * fluidMixture.get_nIndep();
 	mp.energyLabel = "Phi";
 	mp.nIterations=500;

@@ -167,7 +167,6 @@ int main(int argc, char** argv)
 
 	//----- FDtest and CG -----
 	MinimizeParams mp;
-	mp.alphaTstart = 3e1;
 	mp.nDim = gInfo.nr * fluidMixture.get_nIndep();
 	mp.nIterations=1000;
 	mp.knormThreshold=1e-14*pow(hGrid,2);

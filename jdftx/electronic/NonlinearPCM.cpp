@@ -228,10 +228,12 @@ double NonlinearPCM::compute(DataRMuEps* grad)
 
 DataRMuEps NonlinearPCM::precondition(const DataRMuEps& in)
 {	DataRMuEps out;
+	double dielPrefac = 1./(e.gInfo.dV * dielectricEval->NT);
+	double ionsPrefac = screeningEval ? 1./(e.gInfo.dV * screeningEval->NT) : 0.;
 	setMuEps(out,
-		I(preconditioner*J(getMuPlus(in))),
-		I(preconditioner*J(getMuMinus(in))),
-		getEps(in));
+		ionsPrefac * I(preconditioner*J(getMuPlus(in))),
+		ionsPrefac * I(preconditioner*J(getMuMinus(in))),
+		dielPrefac * getEps(in));
 	return out;
 }
 

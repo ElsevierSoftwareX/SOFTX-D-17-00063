@@ -175,7 +175,6 @@ int main(int argc, char** argv)
 	//fluidMixture.loadState("random.state");
 
 	MinimizeParams mp;
-	mp.alphaTstart = 3e1;
 	mp.nDim = gInfo.nr*fluidMixture.get_nIndep();
 	mp.nIterations=200;
 	mp.knormThreshold=5e-12;

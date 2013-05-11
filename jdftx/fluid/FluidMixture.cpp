@@ -34,6 +34,10 @@ FluidMixture::FluidMixture(const GridInfo& gInfo, const double T)
 	Citations::add("Rigid-molecule density functional theory framework", rigidMoleculeCDFT_ScalarEOSpaper);
 }
 
+FluidMixture::~FluidMixture()
+{	
+}
+
 void FluidMixture::initialize(double p, double epsBulkOverride)
 {	logPrintf("Adjusting fluid pressure to p=%lf bar\n", p/Bar);
 	//Compute the maximum possible density (core packed limit)
@@ -96,10 +100,31 @@ void FluidMixture::initialize(double p, double epsBulkOverride)
 			epsBulk += (c->idealGas->get_Nbulk()/c->pureNbulk(T)) * (c->epsBulk - 1.);
 	}
 	double chiMF = 0.;
-	for(const auto& c: component)
+	for(const FluidComponent* c: component)
 		chiMF += c->idealGas->get_Nbulk() * (c->molecule.getDipole().length_squared()/(3.*T) + c->molecule.getAlphaTot());
 	Ceps = (epsBulk>1.) ? (1./(4.*M_PI*chiMF) - 1./(epsBulk-1.)) : 0.;
 	logPrintf("   Local polarization-density correlation factor, Ceps = %lg\n", Ceps);
+	
+	//Initialize preconditioners:
+	Kindep.resize(component.size());
+	for(unsigned ic=0; ic<component.size(); ic++)
+	{	//Determine second derivative of total excess functional:
+		double Nbulk = Nmol[ic];
+		const double dNfac = 1e-4;
+		Nmol[ic]=Nbulk*(1.+dNfac); computeUniformEx(Nmol, Phi_Nmol); double Phi_Np = Phi_Nmol[ic];
+		Nmol[ic]=Nbulk*(1.-dNfac); computeUniformEx(Nmol, Phi_Nmol); double Phi_Nm = Phi_Nmol[ic];
+		Nmol[ic]=Nbulk;
+		double NNPhi_NN = Nbulk * (Phi_Np - Phi_Nm) / (2.*dNfac);
+		if(NNPhi_NN < -0.5*Nbulk*T) NNPhi_NN = -0.5*Nbulk*T;
+		//Set preconditioner:
+		Kindep[ic] = 1./(gInfo.dV * (Nbulk*T + NNPhi_NN));
+	}
+	if(polarizable)
+	{	double chiPol = 0.;
+		for(const FluidComponent* c: component)
+			chiPol += c->idealGas->get_Nbulk() * c->molecule.getAlphaTot();
+		Keps = 1./(gInfo.dV * chiPol);
+	}
 }
 
 const std::vector<const FluidComponent*>& FluidMixture::getComponents() const
@@ -622,8 +647,14 @@ double FluidMixture::compute(DataRptrCollection* grad)
 }
 
 DataRptrCollection FluidMixture::precondition(const DataRptrCollection& grad)
-{	DataRptrCollection Kgrad = clone(grad);
-	for(unsigned k=nIndepIdgas; k<get_nIndep(); k++) Kgrad[k] *= (T*grad.size()); //using an approximate guess at relative Hessians
+{	DataRptrCollection Kgrad(get_nIndep());
+	for(unsigned ic=0; ic<component.size(); ic++)
+	{	const FluidComponent& c = *component[ic];
+		for(unsigned k=c.offsetIndep; k<c.offsetIndep+c.idealGas->nIndep; k++)
+			Kgrad[k] = Kindep[ic]*grad[k];
+	}
+	for(unsigned k=nIndepIdgas; k<get_nIndep(); k++)
+		Kgrad[k] = Keps * grad[k];
 	return Kgrad;
 }
 

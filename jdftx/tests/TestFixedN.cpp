@@ -105,7 +105,6 @@ int main(int argc, char** argv)
 	}
 
 	MinimizeParams mp;
-	mp.alphaTstart = 1e5;
 	mp.nDim = 2*gInfo.nr;
 	mp.nIterations=10;
 	mp.knormThreshold=1e-11;
@@ -212,7 +211,6 @@ int main(int argc, char** argv)
 
 	MinimizeParams mp;
 	mp.fpLog = gInfo.fpLog;
-	mp.alphaTstart = 3e4;
 	mp.alphaMax = 1e300;
 	mp.nDim = 2*gInfo.nr;
 	mp.nIterations=1000;
@@ -305,7 +303,6 @@ int main(int argc, char** argv)
 	}
 
 	MinimizeParams mp;
-	mp.alphaTstart = 1e5;
 	mp.alphaMax = 1e300;
 	mp.nDim = 2*gInfo.nr;
 	mp.nIterations=20;

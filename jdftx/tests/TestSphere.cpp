@@ -61,7 +61,6 @@ struct TestSphere
 		//----- FDtest and CG -----
 		MinimizeParams mp;
 		mp.linminMethod = MinimizeParams::Cubic;
-		mp.alphaTstart = 3e4;
 		mp.nDim = gInfo.nr * fluidMixture.get_nIndep();
 		mp.energyLabel = "Phi";
 		mp.nIterations=100;
