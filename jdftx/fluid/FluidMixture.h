@@ -103,6 +103,8 @@ public:
 	//! Return energy at current state, and optionally the gradient (interface for minimize())
 	double compute(DataRptrCollection* grad);
 
+	DataRptrCollection precondition(const DataRptrCollection& grad);
+	
 private:
 	unsigned nIndepIdgas; //!< number of scalar fields used as independent variables for the component ideal gases
 	unsigned nDensities; //!< total number of site densities

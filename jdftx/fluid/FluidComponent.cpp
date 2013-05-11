@@ -118,7 +118,6 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 				siteO->alpha = 3.73; siteO->aPol = 0.32;
 			molecule.sites.push_back(siteO);
 			auto siteH = std::make_shared<Molecule::Site>("H",int(AtomicSymbol::H));
-				siteH->Znuc = -0.42; siteH->sigmaNuc = 3.;
 				siteH->Znuc = 1.; siteH->sigmaNuc = sigmaNucH;
 				siteH->Zelec = 0.587; siteH->aElec = 0.26;
 				siteH->alpha = 3.30; siteH->aPol = 0.39;

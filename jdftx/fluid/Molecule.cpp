@@ -253,7 +253,7 @@ double Molecule::getAlphaTot() const
 {	double alphaTot = 0.;
 	for(const auto& site: sites)
 		if(site->polKernel)
-			alphaTot += site->polKernel(0) * site->positions.size();
+			alphaTot += pow(site->polKernel(0),2) * site->positions.size();
 	return alphaTot;
 }
 
