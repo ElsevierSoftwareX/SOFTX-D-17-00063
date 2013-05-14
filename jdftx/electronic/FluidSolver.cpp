@@ -165,7 +165,7 @@ public:
 		coupling->setExplicit(nCavityTilde);
 		//set rhoExplicit for electrostatic coupling
 		fluidMixture->rhoExternal = clone(rhoExplicitTilde);
-		if(!fluidMixture->state.size()) fluidMixture->initState(0.05);
+		if(!fluidMixture->state.size()) fluidMixture->initState(0.15, -3*fsp.T);
 		if(!Adiel_rhoExplicitTilde) updateCached();
 	}
 	

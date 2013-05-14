@@ -90,6 +90,7 @@ public:
 	//! @param[out] Phi_indep Gradient w.r.t indep at the current value of indep
 	//! @param[out] outputs optional outputs, see Outputs
 	//! @return Free energy difference (compared to uniform fluid) at this value of indep
+	//! Implemented in FluidMixtureCompute.cpp
 	double operator()(const DataRptrCollection& indep, DataRptrCollection& Phi_indep, Outputs outputs=Outputs()) const;
 
 	//! @brief Get the free energy, densities and moments for the current state
@@ -104,6 +105,8 @@ public:
 	double compute(DataRptrCollection* grad);
 
 	DataRptrCollection precondition(const DataRptrCollection& grad);
+	
+	double minimize(const MinimizeParams&); //!< invokes polarizability linear-solve before and after the regular nonlinear minimize
 	
 private:
 	unsigned nIndepIdgas; //!< number of scalar fields used as independent variables for the component ideal gases
@@ -124,11 +127,15 @@ private:
 	void addFmix(const Fmix* fmix); //!< Called by Fmix::Fmix() to add a mixing functional
 	friend class Fmix;
 
-	//! Compute the uniform excess free energy and gradient w.r.t component molecular densities
+	//! Compute the uniform excess free energy and gradient w.r.t component molecular densities (implemented in FluidMixtureCompute.cpp)
 	double computeUniformEx(const std::vector< double >& Nmol, std::vector< double >& Phi_Nmol) const;
 
 	//! Compute the pressure of the uniform fluid mixture of total molecular density Ntot
 	double compute_p(double Ntot) const;
+	
+	//! Minimize the epsMF component (polarizability independent variable) and return change in free energy
+	double minimizeEpsMF();
+	std::shared_ptr<struct EpsMFsolver> epsMFsolver; //!< internal linear solver for minimizeEpsMF()
 };
 
 #endif // JDFTX_FLUID_FLUIDMIXTURE_H
