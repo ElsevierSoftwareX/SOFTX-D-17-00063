@@ -106,8 +106,6 @@ public:
 
 	DataRptrCollection precondition(const DataRptrCollection& grad);
 	
-	double minimize(const MinimizeParams&); //!< invokes polarizability linear-solve before and after the regular nonlinear minimize
-	
 private:
 	unsigned nIndepIdgas; //!< number of scalar fields used as independent variables for the component ideal gases
 	unsigned nDensities; //!< total number of site densities
@@ -133,9 +131,7 @@ private:
 	//! Compute the pressure of the uniform fluid mixture of total molecular density Ntot
 	double compute_p(double Ntot) const;
 	
-	//! Minimize the epsMF component (polarizability independent variable) and return change in free energy
-	double minimizeEpsMF();
-	std::shared_ptr<struct EpsMFsolver> epsMFsolver; //!< internal linear solver for minimizeEpsMF()
+	static DataGptr coulomb(const DataGptr& rho) { return (-4*M_PI) * Linv(O(rho)); }
 };
 
 #endif // JDFTX_FLUID_FLUIDMIXTURE_H

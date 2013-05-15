@@ -189,12 +189,27 @@ void FluidMixture::initState(double scale, double Elo, double Ehi)
 	for(const FluidComponent* c: component)
 		c->idealGas->initState(&Vex[c->offsetDensity], &state[c->offsetIndep], scale, Elo, Ehi);
 	
-	nullToZero(state, gInfo);
-	double PhiPrev = compute(0);
-	if(polarizable) minimizeEpsMF();
-	logPrintf("CHECK: %22.15le (before)\n", PhiPrev);
-	logPrintf("CHECK: %22.15le (after)\n", compute(0));
-	
+	//Guess polarizability independent variables:
+	if(polarizable)
+	{	DataGptr rhoTot; vector3<> Prot0; double epsInf=1.;
+		for(unsigned ic=0; ic<component.size(); ic++)
+		{	const FluidComponent& c = *(component[ic]);
+			DataRptrCollection N(c.molecule.sites.size()); DataRptrVec P;
+			c.idealGas->getDensities(&state[c.offsetIndep], &N[0], P);
+			for(unsigned i=0; i<c.molecule.sites.size(); i++)
+			{	const Molecule::Site& s = *(c.molecule.sites[i]);
+				if(s.chargeKernel)
+					rhoTot += s.chargeKernel(0) * (c.molecule.mfKernel * J(N[i]));
+				if(s.polKernel && rhoExternal)
+					rhoTot += Cpol * divergence( s.polKernel(0) * (c.molecule.mfKernel * J(N[i] * I(gradient(s.polKernel*coulomb(rhoExternal))) ) ) );
+				epsInf += 4*M_PI * (integral(N[i])/gInfo.detR) * Cpol * pow(s.polKernel(0),2);
+			}
+			if(P) for(int k=0; k<3; k++) Prot0[k] += integral(P[k])/gInfo.detR;
+		}
+		DataGptrVec epsMF = gradient((-1./epsInf)*coulomb(rhoTot));
+		vector3<> epsMF0 = (Eexternal - 4*M_PI*Prot0)/epsInf;
+		for(int k=0; k<3; k++) state[nIndepIdgas+k] = I(epsMF[k]) + epsMF0[k];
+	}
 	logPrintf("\n");
 }
 
@@ -239,17 +254,6 @@ DataRptrCollection FluidMixture::precondition(const DataRptrCollection& grad)
 	for(unsigned k=nIndepIdgas; k<get_nIndep(); k++)
 		Kgrad[k] = Keps * grad[k];
 	return Kgrad;
-}
-
-double FluidMixture::minimize(const MinimizeParams& mp)
-{	if(polarizable) minimizeEpsMF();
-	double Phi = Minimizable<DataRptrCollection>::minimize(mp);
-	if(polarizable)
-	{	Phi += minimizeEpsMF();
-		fprintf(mp.fpLog, "%sOpt epsMF  %s: %22.15le\n", mp.linePrefix, mp.energyLabel, Phi);
-		fprintf(mp.fpLog, "%sOpt epsMF  %s: %22.15le (TEMPORARY CHECK)\n", mp.linePrefix, mp.energyLabel, compute(0));
-	}
-	return Phi;
 }
 
 double FluidMixture::compute_p(double Ntot) const
