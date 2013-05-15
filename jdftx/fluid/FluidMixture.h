@@ -44,8 +44,8 @@ public:
 	//! This calculates the bulk equilibrium densities for all components and corresponding chemical potentials
 	//! so as to achieve pressure P with the specified mole fractions.
 	//! The initial guess for the densities is taken from FluidComponent::Nbulk, and this may be altered to select a particular phase
-	//! The dielectric constant for mixtures is estimated as a weighted combination of the components, and may be overriden by a non-zero epsBulkOverride
-	void initialize(double P=1.01325*Bar, double epsBulkOverride=0.);
+	//! The dielectric constants for mixtures is estimated as a weighted combination of the components, and may be overriden by non-zero overrides
+	void initialize(double P=1.01325*Bar, double epsBulkOverride=0., double epsInfOverride=0.);
 
 	unsigned get_nIndep() const { return nIndepIdgas + (polarizable ? 3 : 0); }  //!< get the number of scalar fields used as independent variables
 	unsigned get_nDensities() const { return nDensities; } //!< get the total number of site densities
@@ -113,7 +113,7 @@ private:
 	unsigned nDensities; //!< total number of site densities
 	bool polarizable;  //!< whether an additional vector field is required due to polarizable components
 	double p;
-	double Ceps; //!< dielectric correlation prefactor (initialized by set pressure)
+	double Crot, Cpol; //!< dielectric correlation prefactors (set by initialize())
 	
 	std::vector<const FluidComponent*> component; //!< array of fluid components
 	std::vector<const Fmix*> fmixArr; //!< array of mixing functionals

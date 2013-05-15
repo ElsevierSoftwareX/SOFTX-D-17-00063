@@ -34,7 +34,7 @@ FluidMixture::~FluidMixture()
 {	
 }
 
-void FluidMixture::initialize(double p, double epsBulkOverride)
+void FluidMixture::initialize(double p, double epsBulkOverride, double epsInfOverride)
 {	logPrintf("Adjusting fluid pressure to p=%lf bar\n", p/Bar);
 	//Compute the maximum possible density (core packed limit)
 	double Nguess=0., n3=0.;
@@ -89,17 +89,25 @@ void FluidMixture::initialize(double p, double epsBulkOverride)
 	this->p = p;
 	
 	//Determine dipole correlation factor:
-	double epsBulk = epsBulkOverride;
+	double epsBulk = epsBulkOverride, epsInf = epsInfOverride;
 	if(!epsBulk)
 	{	epsBulk = 1.;
 		for(const auto& c: component)
 			epsBulk += (c->idealGas->get_Nbulk()/c->pureNbulk(T)) * (c->epsBulk - 1.);
 	}
-	double chiMF = 0.;
+	if(!epsInf)
+	{	epsInf = 1.;
+		for(const auto& c: component)
+			epsInf += (c->idealGas->get_Nbulk()/c->pureNbulk(T)) * (c->epsInf - 1.);
+	}
+	double chiRot = 0., chiPol = 0.;
 	for(const FluidComponent* c: component)
-		chiMF += c->idealGas->get_Nbulk() * (c->molecule.getDipole().length_squared()/(3.*T) + c->molecule.getAlphaTot());
-	Ceps = (epsBulk>1.) ? (1./(4.*M_PI*chiMF) - 1./(epsBulk-1.)) : 0.;
-	logPrintf("   Local polarization-density correlation factor, Ceps = %lg\n", Ceps);
+	{	chiRot += c->idealGas->get_Nbulk() * c->molecule.getDipole().length_squared()/(3.*T);
+		chiPol += c->idealGas->get_Nbulk() * c->molecule.getAlphaTot();
+	}
+	Crot = (epsBulk>epsInf && chiRot) ? (1./(4.*M_PI*chiRot) - 1./(epsBulk-epsInf)) : 0.;
+	Cpol = (epsInf>1. && chiPol) ? (epsInf-1.)/(4.*M_PI*chiPol) : 1.;
+	logPrintf("   Local polarization-density correlation factors, Crot: %lg  Cpol: %lg\n", Crot, Cpol);
 	
 	//Initialize preconditioners:
 	Kindep.resize(component.size());

@@ -51,7 +51,7 @@ struct FluidSolverParams
 	
 	double T; //!< temperature
 	double P; //!< pressure
-	double epsBulkOverride; //!< Override default dielectric constant if non-zero
+	double epsBulkOverride, epsInfOverride; //!< Override default dielectric constants if non-zero
 	bool verboseLog; //!< whether iteration progress is printed for Linear PCM's, and whether sub-iteration progress is printed for others
 	
 	const std::vector< std::shared_ptr<FluidComponent> >& components; //!< list of all fluid components
