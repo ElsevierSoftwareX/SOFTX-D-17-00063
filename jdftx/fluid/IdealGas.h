@@ -22,7 +22,6 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <fluid/Molecule.h>
 #include <core/DataCollection.h>
-#include <core/DataMultiplet.h>
 class FluidMixture;
 class FluidComponent;
 
@@ -47,8 +46,8 @@ public:
 	//! This would also be a good place to logPrintf useful statistics about the potential for debugging
 	virtual void initState(const DataRptr* Vex, DataRptr* indep, double scale, double Elo=-DBL_MAX, double Ehi=+DBL_MAX) const=0;
 
-	//! Given the independent variables indep, compute the site densities N and polarization density P
-	virtual void getDensities(const DataRptr* indep, DataRptr* N, DataRptrVec& P) const=0;
+	//! Given the independent variables indep, compute the site densities N and G=0 component of polarization density P
+	virtual void getDensities(const DataRptr* indep, DataRptr* N, vector3<>& P0) const=0;
 
 	//! Return the ideal gas free energy PhiNI = T Int N - T S + (V-mu).N (where S is implementation dependent)
 	//! and accumulate the gradients w.r.t the site densities
@@ -58,9 +57,9 @@ public:
 	virtual double compute(const DataRptr* indep, const DataRptr* N, DataRptr* Phi_N, const double Nscale, double& Phi_Nscale) const=0;
 
 	//! Compute Phi_indep, the total gradients w.r.t indep, given th egradients of the entire
-	//! functional w.r.t site densities, Phi_N,  and polarization density Phi_P.
+	//! functional w.r.t site densities, Phi_N,  and polarization density G=0 Phi_P0.
 	//! Nscale will be the same as in compute()
-	virtual void convertGradients(const DataRptr* indep, const DataRptr* N, const DataRptr* Phi_N, const DataRptrVec& Phi_P, DataRptr* Phi_indep, const double Nscale) const=0;
+	virtual void convertGradients(const DataRptr* indep, const DataRptr* N, const DataRptr* Phi_N, const vector3<>& Phi_P0, DataRptr* Phi_indep, const double Nscale) const=0;
 
 	double get_Nbulk();
 
@@ -70,6 +69,7 @@ public:
 protected:
 	double Nbulk; //!< equilibirum density of this molecule in the bulk mixture
 	double mu; //!< chemical potential for this molecule
+	double corrPrefac; //!< prefactor for dipolar rotational correlations
 	friend class FluidMixture; //!< FluidMixture::initialize() adjusts Nbulk and mu to get target pressure and mole fractions
 };
 

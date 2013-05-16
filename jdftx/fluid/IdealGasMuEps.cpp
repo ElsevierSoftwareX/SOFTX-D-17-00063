@@ -21,116 +21,31 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/Euler.h>
 
 IdealGasMuEps::IdealGasMuEps(const FluidMixture* fluidMixture, const FluidComponent* comp,  const SO3quad& quad, const TranslationOperator& trans)
-: IdealGas(4,fluidMixture,comp), quad(quad), trans(trans), pMol(molecule.getDipole())
+: IdealGasPomega(fluidMixture, comp, quad, trans, 4)
 {
 }
 
-void IdealGasMuEps::initState(const DataRptr* Vex, DataRptr* mueps, double scale, double Elo, double Ehi) const
-{	DataRptrCollection Veff(molecule.sites.size()); nullToZero(Veff, gInfo);
-	for(int k=0; k<4; k++) mueps[k]=0;
-	for(unsigned i=0; i<molecule.sites.size(); i++)
-	{	Veff[i] += V[i];
-		Veff[i] += Vex[i];
-	}
-	double Emin=+DBL_MAX, Emax=-DBL_MAX, Emean=0.0;
-	for(int o=0; o<quad.nOrientations(); o++)
-	{	matrix3<> rot = matrixFromEuler(quad.euler(o));
-		DataRptr Emolecule;
-		//Sum the potentials collected over sites for each orientation:
-		for(unsigned i=0; i<molecule.sites.size(); i++)
-			for(vector3<> pos: molecule.sites[i]->positions)
-				trans.taxpy(-(rot*pos), 1.0, Veff[i], Emolecule);
-		//Accumulate stats and cap:
-		Emean += quad.weight(o) * sum(Emolecule)/gInfo.nr;
-		double Emin_o, Emax_o;
-		callPref(eblas_capMinMax)(gInfo.nr, Emolecule->dataPref(), Emin_o, Emax_o, Elo, Ehi);
-		if(Emin_o<Emin) Emin=Emin_o;
-		if(Emax_o>Emax) Emax=Emax_o;
-		//Add contributions to the state:
-		vector3<> pVec = rot * pMol;
-		mueps[0] += quad.weight(o) * Emolecule;
-		for(int k=0; k<3; k++)
-			mueps[k+1] += (pVec[k]*quad.weight(o)) * Emolecule;
-	}
-	//Set the scale factor:
-	for(int k=0; k<4; k++) mueps[k] *= (-scale/T);
-	//Print stats:
-	logPrintf("\tIdealGasMuEps[%s] single molecule energy: min = %le, max = %le, mean = %le\n",
-		   molecule.name.c_str(), Emin, Emax, Emean);
+string IdealGasMuEps::representationName() const
+{    return "MuEps";
 }
 
-void IdealGasMuEps::getDensities(const DataRptr* mueps, DataRptr* N, DataRptrVec& P) const
-{	for(unsigned i=0; i<molecule.sites.size(); i++) N[i]=0;
-	P = 0;
-	double& S = ((IdealGasMuEps*)this)->S;
-	S=0.0;
-	//Loop over orientations:
-	for(int o=0; o<quad.nOrientations(); o++)
-	{	matrix3<> rot = matrixFromEuler(quad.euler(o));
-		vector3<> pVec = rot * pMol;
-		DataRptr sum_mueps; //the exponent in the boltzmann factor
-		sum_mueps += mueps[0];
-		for(int k=0; k<3; k++)
-			sum_mueps += pVec[k]*mueps[k+1];
-		DataRptr N_o = quad.weight(o) * Nbulk * exp(sum_mueps); //contribution from this orientation
-		//Accumulate N_o to each site density with appropriate translations:
-		for(unsigned i=0; i<molecule.sites.size(); i++)
-			for(vector3<> pos: molecule.sites[i]->positions)
-				trans.taxpy(rot*pos, 1.0, N_o, N[i]);
-		//Accumulate contributions to the entropy:
-		S += gInfo.dV*dot(N_o, mueps[0]);
-		for(int k=0; k<3; k++)
-			S += pVec[k] * gInfo.dV*dot(N_o, mueps[k+1]);
-		//Accumulate the polarization density:
-		if(pMol.length_squared()) P += pVec * N_o;
-	}
+void IdealGasMuEps::initState_o(int o, const matrix3<>& rot, double scale, const DataRptr& Eo, DataRptr* mueps) const
+{	vector3<> pVec = rot * pMol;
+	mueps[0] += (-quad.weight(o)*scale/T) * Eo;
+	for(int k=0; k<3; k++)
+		mueps[k+1] += (-pVec[k]*quad.weight(o)*scale/T) * Eo;
 }
 
-double IdealGasMuEps::compute(const DataRptr* mueps, const DataRptr* N, DataRptr* Phi_N, const double Nscale, double& Phi_Nscale) const
-{	double PhiNI = 0.0;
-	//Add contributions due to external potentials:
-	for(unsigned i=0; i<molecule.sites.size(); i++)
-		if(V[i])
-		{	Phi_N[i] += V[i];
-			PhiNI += gInfo.dV*dot(N[i], V[i]);
-		}
-	//KE and mu:
-	double invSite0mult = 1./molecule.sites[0]->positions.size();
-	Phi_N[0] -= mu * invSite0mult;
-	PhiNI -= (T+mu)*integral(N[0]) * invSite0mult;
-	//Entropy (this part deals with Nscale explicitly, so need to increment Phi_Nscale):
-	Phi_Nscale += T*S;
-	PhiNI += Nscale*T*S;
-	return PhiNI;
+void IdealGasMuEps::getDensities_o(int o, const matrix3<>& rot, const DataRptr* mueps, DataRptr& logPomega_o) const
+{	vector3<> pVec = rot * pMol;
+	logPomega_o += mueps[0];
+	for(int k=0; k<3; k++)
+		logPomega_o += pVec[k]*mueps[k+1];
 }
 
-void IdealGasMuEps::convertGradients(const DataRptr* mueps, const DataRptr* N, const DataRptr* Phi_N, const DataRptrVec& Phi_P, DataRptr* Phi_mueps, const double Nscale) const
-{	for(int k=0; k<4; k++) Phi_mueps[k]=0;
-	//Loop over orientations:
-	for(int o=0; o<quad.nOrientations(); o++)
-	{	matrix3<> rot = matrixFromEuler(quad.euler(o));
-		vector3<> pVec = rot * pMol;
-		DataRptr Phi_N_o; //gradient w.r.t N_o (as calculated in getDensities)
-		//Collect the contributions from each Phi_N in Phi_N_o
-		for(unsigned i=0; i<molecule.sites.size(); i++)
-			for(vector3<> pos: molecule.sites[i]->positions)
-				trans.taxpy(-rot*pos, 1.0, Phi_N[i], Phi_N_o);
-		//Collect the contributions the entropy:
-		Phi_N_o += T*mueps[0];
-		for(int k=0; k<3; k++)
-			Phi_N_o += (T*pVec[k])*mueps[k+1];
-		//Collect the contribution from Phi_P:
-		if(pMol.length_squared()) Phi_N_o += dot(pVec, Phi_P);
-		//Calculate N_o again:
-		DataRptr sum_mueps;
-		sum_mueps += mueps[0];
-		for(int k=0; k<3; k++)
-			sum_mueps += pVec[k]*mueps[k+1];
-		DataRptr N_o = (quad.weight(o) * Nbulk * Nscale) * exp(sum_mueps);
-		//Accumulate N_o * Phi_N_o into each component of Phi_mueps with appropriate weights:
-		DataRptr Phi_mueps_term = N_o * Phi_N_o;
-		Phi_mueps[0] += Phi_mueps_term;
-		for(int k=0; k<3; k++)
-			Phi_mueps[k+1] += pVec[k] * Phi_mueps_term;
-	}
+void IdealGasMuEps::convertGradients_o(int o, const matrix3<>& rot, const DataRptr& Phi_logPomega_o, DataRptr* Phi_mueps) const
+{	vector3<> pVec = rot * pMol;
+	Phi_mueps[0] += Phi_logPomega_o;
+	for(int k=0; k<3; k++)
+		Phi_mueps[k+1] += pVec[k] * Phi_logPomega_o;
 }

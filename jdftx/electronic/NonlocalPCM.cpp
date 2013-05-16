@@ -69,10 +69,7 @@ NonlocalPCM::NonlocalPCM(const Everything& e, const FluidSolverParams& fsp)
 	
 	//Determine dipole correlation factors:
 	vector3<> pMol = solvent->molecule.getDipole();
-	double alphaTot = 0.;
-	for(const auto& site: solvent->molecule.sites)
-		if(site->polKernel)
-			alphaTot += pow(site->polKernel(0),2) * site->positions.size();
+	double alphaTot = solvent->molecule.getAlphaTot();
 	double l1prefac = pMol.length_squared() ? sqrt((epsBulk - (alphaTot ? solvent->epsInf : 1.))*3./pMol.length_squared()) : 0.;
 	double polPrefac = alphaTot ? sqrt(((l1prefac ? solvent->epsInf : epsBulk) - 1.)/(4.*M_PI*alphaTot)) : 0.;
 	
@@ -126,7 +123,7 @@ NonlocalPCM::NonlocalPCM(const Everything& e, const FluidSolverParams& fsp)
 		if(site.polKernel)
 		{	std::vector<double> Vsamples(nGradial);
 			for(unsigned iG=0; iG<nGradial; iG++)
-				Vsamples[iG] = polPrefac * site.polKernel(iG*dG);
+				Vsamples[iG] = polPrefac * sqrt(site.alpha) * site.polKernel(iG*dG);
 			response.push_back(std::make_shared<MultipoleResponse>(1, iSite, site.positions.size(), Vsamples, dG));
 		}
 	}

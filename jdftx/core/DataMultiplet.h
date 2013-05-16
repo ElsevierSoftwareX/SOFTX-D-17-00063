@@ -159,10 +159,11 @@ template<class T,int N> TptrMul operator-(TptrMul&& in1, const Tptr& in2) { retu
 template<class T,int N> TptrMul operator-(const Tptr& in1, TptrMul&& in2) { return (in2 -= in1) *= -1.0; } //!<Subtract (destructible input)
 
 //Norms and dot products
-
 template<class T,int N> double dot(const TptrMul& X, const TptrMul& Y) { double ret=0.0; Nloop(ret+=dot(X[i],Y[i]);) return ret; } //!< Inner product
 template<class T,int N> double nrm2(const TptrMul& X) { return sqrt(dot(X,X)); } //!< 2-norm
 template<class T,int N> double sum(const TptrMul& X) { double ret=0.0; Nloop(ret+=sum(X[i]);) return ret; } //!< Sum of elements
+inline vector3<> getGzero(const DataGptrVec& X) { vector3<> ret; for(int k=0; k<3; k++) if(X[k]) ret[k]=X[k]->getGzero(); return ret; } //!< return G=0 components
+inline void setGzero(const DataGptrVec& X, vector3<> v) { for(int k=0; k<3; k++) if(X[k]) X[k]->setGzero(v[k]); } //!< set G=0 components
 inline vector3<> sumComponents(const DataRptrVec& X) { return vector3<>(sum(X[0]), sum(X[1]), sum(X[2])); } //!< Sum of elements (component-wise)
 inline DataRptr lengthSquared(const DataRptrVec& X) { return X[0]*X[0] + X[1]*X[1] + X[2]*X[2]; } //!< Elementwise length squared
 

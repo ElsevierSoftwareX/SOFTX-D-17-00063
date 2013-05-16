@@ -30,9 +30,9 @@ public:
 	IdealGasMonoatomic(const FluidMixture*, const FluidComponent*);
 
 	void initState(const DataRptr* Vex, DataRptr* psi, double scale, double Elo, double Ehi) const;
-	void getDensities(const DataRptr* psi, DataRptr* N, DataRptrVec& P) const;
+	void getDensities(const DataRptr* psi, DataRptr* N, vector3<>& P0) const;
 	double compute(const DataRptr* psi, const DataRptr* N, DataRptr* Phi_N, const double Nscale, double& Phi_Nscale) const;
-	void convertGradients(const DataRptr* psi, const DataRptr* N, const DataRptr* Phi_N, const DataRptrVec&  Phi_P, DataRptr* Phi_psi, const double Nscale) const;
+	void convertGradients(const DataRptr* psi, const DataRptr* N, const DataRptr* Phi_N, const vector3<>&  Phi_P0, DataRptr* Phi_psi, const double Nscale) const;
 };
 
 #endif // JDFTX_FLUID_IDEALGASMONOATOMIC_H

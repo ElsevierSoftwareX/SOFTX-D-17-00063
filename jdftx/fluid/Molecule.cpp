@@ -93,9 +93,8 @@ void Molecule::Site::setup(const GridInfo& gInfo)
 	
 	//Initialize polarizability kernel:
 	if(alpha)
-	{	logPrintf("       Polarizability: cuspless exponential with width %lg and", aPol);
-		polKernel.init(0, gInfo.dGradial, gInfo.GmaxGrid, cusplessExpTilde, sqrt(alpha), aPol);
-		logPrintf(" norm %lg\n", pow(polKernel(0),2));
+	{	logPrintf("       Polarizability: cuspless exponential with width %lg and norm %lg\n", aPol, alpha);
+		polKernel.init(0, gInfo.dGradial, gInfo.GmaxGrid, cusplessExpTilde, 1., aPol);
 	}
 	
 	if(Rhs)
@@ -253,7 +252,7 @@ double Molecule::getAlphaTot() const
 {	double alphaTot = 0.;
 	for(const auto& site: sites)
 		if(site->polKernel)
-			alphaTot += pow(site->polKernel(0),2) * site->positions.size();
+			alphaTot += site->alpha * site->positions.size();
 	return alphaTot;
 }
 

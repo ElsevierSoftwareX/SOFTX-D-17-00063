@@ -171,7 +171,7 @@ int main(int argc, char** argv)
 	//componentNe.Nnorm = 52;
 
 	//fluidMixture.verboseLog = true;
-	fluidMixture.initState(0.15);
+	fluidMixture.initState(0.15*0);
 	//fluidMixture.loadState("random.state");
 
 	MinimizeParams mp;

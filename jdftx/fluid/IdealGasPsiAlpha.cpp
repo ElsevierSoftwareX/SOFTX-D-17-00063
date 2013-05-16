@@ -23,99 +23,37 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 
 
 IdealGasPsiAlpha::IdealGasPsiAlpha(const FluidMixture* fluidMixture, const FluidComponent* comp, const SO3quad& quad, const TranslationOperator& trans)
-: IdealGas(comp->molecule.sites.size(),fluidMixture,comp), quad(quad), trans(trans), pMol(molecule.getDipole())
+: IdealGasPomega(fluidMixture, comp, quad, trans, comp->molecule.sites.size())
 {
+}
+
+string IdealGasPsiAlpha::representationName() const
+{    return "PsiAlpha";
+}
+
+void IdealGasPsiAlpha::initState_o(int o, const matrix3<>& rot, double scale, const DataRptr& Eo, DataRptr* indep) const
+{	//InitState loop unused, overriden below:
 }
 
 void IdealGasPsiAlpha::initState(const DataRptr* Vex, DataRptr* psi, double scale, double Elo, double Ehi) const
-{	DataRptrCollection Veff(molecule.sites.size()); nullToZero(Veff, gInfo);
-	for(unsigned i=0; i<molecule.sites.size(); i++)
-	{	Veff[i] += V[i];
-		Veff[i] += Vex[i];
-	}
-	double Emin=+DBL_MAX, Emax=-DBL_MAX, Emean=0.0;
-	for(int o=0; o<quad.nOrientations(); o++)
-	{	matrix3<> rot = matrixFromEuler(quad.euler(o));
-		DataRptr Emolecule;
-		//Sum the potentials collected over sites for each orientation:
-		for(unsigned i=0; i<molecule.sites.size(); i++)
-			for(vector3<> pos: molecule.sites[i]->positions)
-				trans.taxpy(-(rot*pos), 1.0, Veff[i], Emolecule);
-		//Accumulate stats and cap:
-		Emean += quad.weight(o) * sum(Emolecule)/gInfo.nr;
-		double Emin_o, Emax_o;
-		callPref(eblas_capMinMax)(gInfo.nr, Emolecule->dataPref(), Emin_o, Emax_o, Elo, Ehi);
-		if(Emin_o<Emin) Emin=Emin_o;
-		if(Emax_o>Emax) Emax=Emax_o;
-	}
-	//Print stats:
-	logPrintf("\tIdealGasPsiAlpha[%s] single molecule energy: min = %le, max = %le, mean = %le\n",
-		   molecule.name.c_str(), Emin, Emax, Emean);
+{	IdealGasPomega::initState(Vex, psi, scale, Elo, Ehi);
 	//Initialize the state (simply a constant factor times the potential):
-	for(unsigned i=0; i<molecule.sites.size(); i++) psi[i] = (-scale/T)*Veff[i];
-}
-
-void IdealGasPsiAlpha::getDensities(const DataRptr* psi, DataRptr* N, DataRptrVec& P) const
-{	for(unsigned i=0; i<molecule.sites.size(); i++) N[i]=0;
-	P = 0;
-	//Loop over orientations:
-	for(int o=0; o<quad.nOrientations(); o++)
-	{	matrix3<> rot = matrixFromEuler(quad.euler(o));
-		DataRptr sum_psi; //the exponent in the boltzmann factor
-		//Collect psi's from each site in this orientation:
-		for(unsigned i=0; i<molecule.sites.size(); i++)
-			for(vector3<> pos: molecule.sites[i]->positions)
-				trans.taxpy(-rot*pos, 1., psi[i], sum_psi);
-		DataRptr N_o = quad.weight(o) * Nbulk * exp(sum_psi); //contribution from this orientation
-		//Accumulate N_o to each site density with appropriate translations:
-		for(unsigned i=0; i<molecule.sites.size(); i++)
-			for(vector3<> pos: molecule.sites[i]->positions)
-				trans.taxpy(rot*pos, 1., N_o, N[i]);
-		//Accumulate the polarization density:
-		if(pMol.length_squared()) P += (rot * pMol) * N_o;
-	}
-}
-
-double IdealGasPsiAlpha::compute(const DataRptr* psi, const DataRptr* N, DataRptr* Phi_N, const double Nscale, double& Phi_Nscale) const
-{	double PhiNI = 0.0;
 	for(unsigned i=0; i<molecule.sites.size(); i++)
-	{	DataRptr PhiNI_Ni = T*psi[i] + V[i];
-		if(i==0) //Add terms associated with whole molecule (mu and KE) to first site
-		{	double invSite0mult = 1./molecule.sites[0]->positions.size();
-			PhiNI_Ni -= mu * invSite0mult;
-			PhiNI -= T*integral(N[0]) * invSite0mult;
-		}
-		if(PhiNI_Ni)
-		{	Phi_N[i] += PhiNI_Ni;
-			PhiNI += gInfo.dV*dot(N[i], PhiNI_Ni);
-		}
+	{	DataRptr Veff_i; nullToZero(Veff_i, gInfo);
+		Veff_i += V[i];
+		Veff_i += Vex[i];
+		psi[i] = (-scale/T)*Veff_i;
 	}
-	return PhiNI;
 }
 
-void IdealGasPsiAlpha::convertGradients(const DataRptr* psi, const DataRptr* N, const DataRptr* Phi_N, const DataRptrVec& Phi_P, DataRptr* Phi_psi, const double Nscale) const
-{
-	for(unsigned i=0; i<molecule.sites.size(); i++) Phi_psi[i]=0;
-	//Loop over orientations:
-	for(int o=0; o<quad.nOrientations(); o++)
-	{	matrix3<> rot = matrixFromEuler(quad.euler(o));
-		DataRptr Phi_N_o; //gradient w.r.t N_o (as calculated in getDensities)
-		//Collect the contributions from each Phi_N in Phi_N_o
-		for(unsigned i=0; i<molecule.sites.size(); i++)
-			for(vector3<> pos: molecule.sites[i]->positions)
-				trans.taxpy(-rot*pos, 1., Phi_N[i], Phi_N_o);
-		//Collect the contribution from Phi_P:
-		if(pMol.length_squared()) Phi_N_o += dot(rot * pMol, Phi_P);
-		//Calculate N_o again (with Nscale this time):
-		DataRptr sum_psi;
-		for(unsigned i=0; i<molecule.sites.size(); i++)
-			for(vector3<> pos: molecule.sites[i]->positions)
-				trans.taxpy(-rot*pos, 1., psi[i], sum_psi);
-		DataRptr N_o = (quad.weight(o) * Nbulk * Nscale) * exp(sum_psi); //contribution from this orientation
-		//Accumulate N_o * Phi_N_o into each Phi_psi with appropriate translations:
-		DataRptr Phi_psi_term = N_o * Phi_N_o;
-		for(unsigned i=0; i<molecule.sites.size(); i++)
-			for(vector3<> pos: molecule.sites[i]->positions)
-				trans.taxpy(rot*pos, 1., Phi_psi_term, Phi_psi[i]);
-	}
+void IdealGasPsiAlpha::getDensities_o(int o, const matrix3<>& rot, const DataRptr* psi, DataRptr& logPomega_o) const
+{	for(unsigned i=0; i<molecule.sites.size(); i++)
+		for(vector3<> pos: molecule.sites[i]->positions)
+			trans.taxpy(-rot*pos, 1., psi[i], logPomega_o);
+}
+
+void IdealGasPsiAlpha::convertGradients_o(int o, const matrix3<>& rot, const DataRptr& Phi_logPomega_o, DataRptr* Phi_psi) const
+{	for(unsigned i=0; i<molecule.sites.size(); i++)
+		for(vector3<> pos: molecule.sites[i]->positions)
+			trans.taxpy(rot*pos, 1., Phi_logPomega_o, Phi_psi[i]);
 }

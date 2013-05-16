@@ -108,6 +108,8 @@ void FluidMixture::initialize(double p, double epsBulkOverride, double epsInfOve
 	Crot = (epsBulk>epsInf && chiRot) ? (1./(4.*M_PI*chiRot) - 1./(epsBulk-epsInf)) : 0.;
 	Cpol = (epsInf>1. && chiPol) ? (epsInf-1.)/(4.*M_PI*chiPol) : 1.;
 	logPrintf("   Local polarization-density correlation factors, Crot: %lg  Cpol: %lg\n", Crot, Cpol);
+	for(const FluidComponent* c: component)
+		c->idealGas->corrPrefac = -4*M_PI*Crot;
 	
 	//Initialize preconditioners:
 	Kindep.resize(component.size());
@@ -194,17 +196,17 @@ void FluidMixture::initState(double scale, double Elo, double Ehi)
 	{	DataGptr rhoTot; vector3<> Prot0; double epsInf=1.;
 		for(unsigned ic=0; ic<component.size(); ic++)
 		{	const FluidComponent& c = *(component[ic]);
-			DataRptrCollection N(c.molecule.sites.size()); DataRptrVec P;
-			c.idealGas->getDensities(&state[c.offsetIndep], &N[0], P);
+			DataRptrCollection N(c.molecule.sites.size()); vector3<> P0c;
+			c.idealGas->getDensities(&state[c.offsetIndep], &N[0], P0c);
+			Prot0 += P0c;
 			for(unsigned i=0; i<c.molecule.sites.size(); i++)
 			{	const Molecule::Site& s = *(c.molecule.sites[i]);
 				if(s.chargeKernel)
 					rhoTot += s.chargeKernel(0) * (c.molecule.mfKernel * J(N[i]));
 				if(s.polKernel && rhoExternal)
-					rhoTot += Cpol * divergence( s.polKernel(0) * (c.molecule.mfKernel * J(N[i] * I(gradient(s.polKernel*coulomb(rhoExternal))) ) ) );
-				epsInf += 4*M_PI * (integral(N[i])/gInfo.detR) * Cpol * pow(s.polKernel(0),2);
+					rhoTot += (Cpol * s.alpha) * divergence(c.molecule.mfKernel * J(N[i] * I(gradient(s.polKernel*coulomb(rhoExternal)))));
+				epsInf += 4*M_PI * (integral(N[i])/gInfo.detR) * Cpol * s.alpha;
 			}
-			if(P) for(int k=0; k<3; k++) Prot0[k] += integral(P[k])/gInfo.detR;
 		}
 		DataGptrVec epsMF = gradient((-1./epsInf)*coulomb(rhoTot));
 		vector3<> epsMF0 = (Eexternal - 4*M_PI*Prot0)/epsInf;

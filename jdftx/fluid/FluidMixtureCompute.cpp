@@ -51,12 +51,11 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 
 	//---------- Compute site densities from the independent variables ---------
 	DataGptrCollection Ntilde(nDensities); //site densities (in reciprocal space)
-	std::vector<DataGptrVec> Ptilde(component.size()); //polarization densities
+	std::vector< vector3<> > P0(component.size()); //polarization densities G=0
 	for(unsigned ic=0; ic<component.size(); ic++)
 	{	const FluidComponent& c = *component[ic];
-		DataRptrCollection N(c.molecule.sites.size()); DataRptrVec P;
-		c.idealGas->getDensities(&indep[c.offsetIndep], &N[0], P);
-		if(P) { Ptilde[ic] = J(P); P = 0; } //Collect mean field polarization density
+		DataRptrCollection N(c.molecule.sites.size());
+		c.idealGas->getDensities(&indep[c.offsetIndep], &N[0], P0[ic]);
 		for(unsigned i=0; i<c.molecule.sites.size(); i++)
 		{	//Replace negative densities with 0:
 			double Nmin, Nmax;
@@ -135,21 +134,21 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 	{	const FluidComponent& c = *component[ic];
 		for(unsigned i=0; i<c.molecule.sites.size(); i++)
 			Ntilde[c.offsetDensity+i] *= Nscale[ic];
-		if(Ptilde[ic]) Ptilde[ic] *= Nscale[ic];
+		P0[ic] *= Nscale[ic];
 	}
 
 	EnergyComponents Phi; //the grand free energy (with component information)
 	DataGptrCollection Phi_Ntilde(nDensities); //gradients (functional derivative) w.r.t reciprocal space site densities
-	std::vector<DataGptrVec> Phi_Ptilde(component.size()); //functional derivative w.r.t polarization density
+	std::vector< vector3<> > Phi_P0(component.size()); //functional derivative w.r.t polarization density G=0
 	DataGptrVec Phi_epsMF; //functional derivative w.r.t mean field electric field
 	
 	//--------- Compute the (scaled) mean field coulomb interaction --------
 	{	DataGptr rho; //total charge density
 		DataGptr rhoMF; //effective charge density for mean-field term
-		DataGptrVec Prot, Ppol; //effective polarization densities for mean field correction
 		bool needRho = rhoExternal || outputs.Phi_rhoExternal;
 		
 		DataGptrVec epsMF = polarizable ? J(DataRptrVec(&indep[nIndepIdgas])) : 0; //mean field electric field
+		vector3<> P0tot;
 		
 		for(unsigned ic=0; ic<component.size(); ic++)
 		{	const FluidComponent& c = *component[ic];
@@ -163,28 +162,25 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 				if(s.polKernel)
 				{	
 					#define Polarization_Compute_Pi_Ni \
-						DataRptrVec Pi = sqrt(Cpol) * I(s.polKernel(0)*(c.molecule.mfKernel*epsMF) + (rhoExternal ? gradient(s.polKernel*Linv((gInfo.detR*4*M_PI)*rhoExternal)) : 0)); \
+						DataRptrVec Pi = (Cpol*s.alpha) * I(c.molecule.mfKernel*epsMF - (rhoExternal ? gradient(s.polKernel*coulomb(rhoExternal)) : 0)); \
 						DataRptr Ni = I(Ntilde[c.offsetDensity+i]);
 					Polarization_Compute_Pi_Ni
 					
-					DataRptr Phi_Ni = 0.5*lengthSquared(Pi);
+					DataRptr Phi_Ni = (0.5/(Cpol*s.alpha))*lengthSquared(Pi);
 					Phi["Apol"] += gInfo.dV * dot(Ni, Phi_Ni);
 					//Derivative contribution to site densities:
 					Phi_Ntilde[c.offsetDensity+i] += Idag(Phi_Ni); Phi_Ni=0;
 					//Update contributions to bound charge:
 					DataGptrVec NPtilde = J(Ni * Pi); Pi=0; Ni=0;
 					DataGptr divNPbar;
-					if(needRho)
-					{	divNPbar = sqrt(Cpol) * (s.polKernel*divergence(NPtilde));
-						rho -= divNPbar;
-					}
-					DataGptrVec NPbarMF = sqrt(Cpol) * s.polKernel(0)*(c.molecule.mfKernel*NPtilde); NPtilde=0;
+					if(needRho) rho -= s.polKernel*divergence(NPtilde);
+					DataGptrVec NPbarMF = c.molecule.mfKernel*NPtilde; NPtilde=0;
 					rhoMF -= divergence(NPbarMF);
-					Ppol += NPbarMF;
 					Phi_epsMF += gInfo.nr * NPbarMF;
+					P0tot += getGzero(NPbarMF);
 				}
 			}
-			if(Ptilde[ic]) Prot += c.molecule.mfKernel * Ptilde[ic];
+			P0tot += P0[ic];
 		}
 		
 		if(rhoMF)
@@ -192,41 +188,28 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 			DataGptr Phi_rho;
 			if(needRho)
 			{	if(rhoExternal)
-				{	DataGptr OdExternal = O(-4*M_PI*Linv(O(rhoExternal)));
+				{	DataGptr OdExternal = O(coulomb(rhoExternal));
 					Phi["ExtCoulomb"] += dot(rho, OdExternal);
 					Phi_rho += OdExternal;
 				}
-				if(outputs.Phi_rhoExternal) *outputs.Phi_rhoExternal = -4*M_PI*Linv(O(rho));
+				if(outputs.Phi_rhoExternal) *outputs.Phi_rhoExternal = coulomb(rho);
 			}
 		
 			//Mean field contributions:
 			DataGptr Phi_rhoMF;
-			{	DataGptr OdMF = O(-4*M_PI*Linv(O(rhoMF))); //mean-field electrostatic potential
+			{	DataGptr OdMF = O(coulomb(rhoMF)); //mean-field electrostatic potential
 				Phi["Coulomb"] += 0.5*dot(rhoMF, OdMF);
 				Phi_rhoMF += OdMF;
 			}
 			
 			//Polarization density interactions:
-			DataGptrVec Phi_Prot, Phi_Ppol; vector3<> P0;
-			if(Prot)
-			{	for(int k=0; k<3; k++) P0[k] += Prot[k]->getGzero();
-				Phi_Prot = (-4*M_PI*Crot) * O(Prot);
-				Phi["LPDA"] += 0.5*dot(Phi_Prot, Prot);
-			}
-			if(Ppol)
-			{	for(int k=0; k<3; k++) P0[k] += Ppol[k]->getGzero();
-				nullToZero(Phi_Ppol, gInfo);
-			}
-			if(outputs.electricP) *outputs.electricP = P0 * gInfo.detR;
+			if(outputs.electricP) *outputs.electricP = P0tot * gInfo.detR;
 			//--- corrections for net dipole in cell:
-			vector3<> Phi_P0 = (4*M_PI*gInfo.detR) * P0;
-			Phi["PsqCell"] += 0.5 * dot(Phi_P0, P0); 
+			vector3<> Phi_P0tot = (4*M_PI*gInfo.detR) * P0tot;
+			Phi["PsqCell"] += 0.5 * dot(Phi_P0tot, P0tot); 
 			//--- external electric field interactions:
-			Phi["ExtCoulomb"] -= gInfo.detR * dot(Eexternal, P0);
-			Phi_P0 -= gInfo.detR * Eexternal;
-			//--- propagate Phi_P0 to Phi_Ppol and Phi_Prot:
-			if(Phi_Prot) for(int k=0; k<3; k++) Phi_Prot[k]->setGzero(Phi_Prot[k]->getGzero() + Phi_P0[k]);
-			if(Phi_Ppol) for(int k=0; k<3; k++) Phi_Ppol[k]->setGzero(Phi_Ppol[k]->getGzero() + Phi_P0[k]);
+			Phi["ExtCoulomb"] -= gInfo.detR * dot(Eexternal, P0tot);
+			Phi_P0tot -= gInfo.detR * Eexternal;
 			
 			//Propagate gradients:
 			for(unsigned ic=0; ic<component.size(); ic++)
@@ -239,8 +222,9 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 					}
 					//Polarization contributions:
 					if(s.polKernel)
-					{	DataRptrVec Phi_NP = sqrt(Cpol) * Jdag( s.polKernel(0)*(c.molecule.mfKernel*(Phi_Ppol + gradient(Phi_rhoMF)))
-							+ (needRho ? gradient(s.polKernel * Phi_rho) : 0) );
+					{	DataGptrVec Phi_NPtilde = gradient(c.molecule.mfKernel*Phi_rhoMF + (needRho ? s.polKernel*Phi_rho : 0));
+						setGzero(Phi_NPtilde, getGzero(Phi_NPtilde) + Phi_P0tot);
+						DataRptrVec Phi_NP = Jdag(Phi_NPtilde); Phi_NPtilde=0;
 						//propagate gradients from NP to N, epsMF and rhoExternal:
 						Polarization_Compute_Pi_Ni
 						#undef Polarization_Compute_Pi_Ni
@@ -249,10 +233,10 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 						Phi_Ntilde[c.offsetDensity+i] += (1./gInfo.dV) * Idag(Phi_Ni); Phi_Ni=0;
 						// --> via Pi
 						DataGptrVec Phi_PiTilde = Idag(Phi_NP * Ni); Phi_NP=0;
-						Phi_epsMF += (sqrt(Cpol) * s.polKernel(0)/gInfo.dV)*(c.molecule.mfKernel*Phi_PiTilde);
+						Phi_epsMF += (Cpol*s.alpha/gInfo.dV)*(c.molecule.mfKernel*Phi_PiTilde);
 					}
 				}
-				if(Ptilde[ic]) Phi_Ptilde[ic] += (1./gInfo.dV) * (c.molecule.mfKernel * Phi_Prot);
+				Phi_P0[ic] += (1./gInfo.detR) * Phi_P0tot; //convert to functional derivative
 			}
 		}
 	}
@@ -354,14 +338,6 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 		Phi_N[i] = Jdag(Phi_Ntilde[i]); Phi_Ntilde[i] = 0;
 		if(outputs.N) (*outputs.N)[i] = N[i]; //Link site-density to return pointer if necessary
 	}
-	//Put the polarization densities and gradients back in real space:
-	std::vector<DataRptrVec> P(component.size());
-	std::vector<DataRptrVec> Phi_P(component.size());
-	for(unsigned ic=0; ic<component.size(); ic++)
-		if(Ptilde[ic])
-		{	P[ic] = I(Ptilde[ic]); Ptilde[ic] = 0;
-			Phi_P[ic] = Jdag(Phi_Ptilde[ic]); Phi_Ptilde[ic] = 0;
-		}
 	//Estimate psiEff based on gradients, if requested
 	if(outputs.psiEff)
 	{	outputs.psiEff->resize(nDensities);
@@ -393,7 +369,7 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 			if(Nscale_N0[ic][jc])
 				anyNonzero=true;
 		if(anyNonzero)
-		{	if(P[ic] && Phi_P[ic]) Phi_Nscale[ic] += gInfo.dV * dot(P[ic], Phi_P[ic])/ Nscale[ic];
+		{	Phi_Nscale[ic] += gInfo.detR*dot(P0[ic], Phi_P0[ic])/ Nscale[ic];
 			for(unsigned i=0; i<ci.molecule.sites.size(); i++)
 				Phi_Nscale[ic] += gInfo.dV*dot(N[ci.offsetDensity+i], Phi_N[ci.offsetDensity+i])/ Nscale[ic];
 		}
@@ -414,7 +390,7 @@ double FluidMixture::operator()(const DataRptrCollection& indep, DataRptrCollect
 	for(unsigned ic=0; ic<component.size(); ic++)
 	{	const FluidComponent& c = *component[ic];
 		c.idealGas->convertGradients(&indep[c.offsetIndep], &N[c.offsetDensity],
-			&Phi_N[c.offsetDensity], Phi_P[ic], &Phi_indep[c.offsetIndep], Nscale[ic]);
+			&Phi_N[c.offsetDensity], Phi_P0[ic], &Phi_indep[c.offsetIndep], Nscale[ic]);
 	}
 	for(unsigned k=nIndepIdgas; k<get_nIndep(); k++) Phi_indep[k] = Jdag(Phi_epsMF[k-nIndepIdgas]);
 	
