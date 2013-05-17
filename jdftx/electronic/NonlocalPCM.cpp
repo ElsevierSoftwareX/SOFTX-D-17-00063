@@ -32,7 +32,7 @@ struct MultipoleResponse
 	int iSite; //!< site index (-1 => molecule center)
 	int siteMultiplicity; //!< number of sites sharing index iSite
 	
-	RadialFunctionG V; //!< radial part of response eigenfunction scaled by square root of eigenvalue and 1/G^l
+	RadialFunctionG V; //!< radial part of response eigenfunctions scaled by square root of eigenvalue and 1/G^l
 	
 	MultipoleResponse(int l, int iSite, int siteMultiplicity, const std::vector<double>& Vsamples, double dG)
 	: l(l), iSite(iSite), siteMultiplicity(siteMultiplicity)
@@ -68,10 +68,13 @@ NonlocalPCM::NonlocalPCM(const Everything& e, const FluidSolverParams& fsp)
 	nFluid.init(0, nFluidSamples, dG);
 	
 	//Determine dipole correlation factors:
-	vector3<> pMol = solvent->molecule.getDipole();
-	double alphaTot = solvent->molecule.getAlphaTot();
-	double l1prefac = pMol.length_squared() ? sqrt((epsBulk - (alphaTot ? solvent->epsInf : 1.))*3./pMol.length_squared()) : 0.;
-	double polPrefac = alphaTot ? sqrt(((l1prefac ? solvent->epsInf : epsBulk) - 1.)/(4.*M_PI*alphaTot)) : 0.;
+	double chiRot = 0., chiPol = 0.;
+	for(const auto& c: fsp.components)
+	{	chiRot += c->Nbulk * c->molecule.getDipole().length_squared()/(3.*fsp.T);
+		chiPol += c->Nbulk * c->molecule.getAlphaTot();
+	}
+	double sqrtCrot = (epsBulk>epsInf && chiRot) ? sqrt((epsBulk-epsInf)/(4.*M_PI*chiRot)) : 1.;
+	double sqrtCpol = (epsInf>1. && chiPol) ? sqrt((epsInf-1.)/(4.*M_PI*chiPol)) : 1.;
 	
 	//Rotational and translational response (includes ionic response):
 	const double bessel_jl_by_Gl_zero[3] = {1., 1./3, 1./15}; //G->0 limit of j_l(G)/G^l
@@ -79,22 +82,27 @@ NonlocalPCM::NonlocalPCM(const Everything& e, const FluidSolverParams& fsp)
 		for(int l=0; l<=fsp.lMax; l++)
 		{	//Calculate radial densities for all m:
 			gsl_matrix* V = gsl_matrix_calloc(nGradial, 2*l+1); //allocate and set to zero
-			double prefac = (l==1 && l1prefac && c->type==FluidComponent::Solvent) ? l1prefac : sqrt(4.*M_PI*c->Nbulk/fsp.T);
+			double prefac = sqrt(4.*M_PI*c->Nbulk/fsp.T);
 			for(unsigned iG=0; iG<nGradial; iG++)
 			{	double G = iG*dG;
 				for(const auto& site: c->molecule.sites)
-				{	double VsiteTilde = prefac * site->chargeKernel(G);
+				{	double Vsite = prefac * site->chargeKernel(G);
 					for(const vector3<>& r: site->positions)
 					{	double rLength = r.length();
 						double bessel_jl_by_Gl = G ? bessel_jl(l,G*rLength)/pow(G,l) : bessel_jl_by_Gl_zero[l]*pow(rLength,l);
 						vector3<> rHat = (rLength ? 1./rLength : 0.) * r;
 						for(int m=-l; m<=+l; m++)
 						{	double Ylm_rHat=0.; SwitchTemplate_lm(l, m, set_Ylm, (rHat, Ylm_rHat))
-							*gsl_matrix_ptr(V,iG,l+m) += VsiteTilde * bessel_jl_by_Gl * Ylm_rHat;
+							*gsl_matrix_ptr(V,iG,l+m) += Vsite * bessel_jl_by_Gl * Ylm_rHat;
 						}
 					}
 				}
 			}
+			//Scale dipole active modes:
+			for(int lm=0; lm<2l+1; lm++)
+				if(l==1 && fabs(gsl_matrix_get(V,0,lm))>1e-6)
+					for(unsigned iG=0; iG<nGradial; iG++)
+						*gsl_matrix_ptr(V,iG,lm) *= sqrtCrot;
 			//Get linearly-independent non-zero modes by performing an SVD:
 			gsl_vector* S = gsl_vector_alloc(2*l+1);
 			gsl_matrix* U = gsl_matrix_alloc(2*l+1, 2*l+1);
@@ -122,8 +130,9 @@ NonlocalPCM::NonlocalPCM(const Everything& e, const FluidSolverParams& fsp)
 	{	const Molecule::Site& site = *(solvent->molecule.sites[iSite]);
 		if(site.polKernel)
 		{	std::vector<double> Vsamples(nGradial);
+			double prefac = sqrtCpol * sqrt(solvent->Nbulk * site.alpha);
 			for(unsigned iG=0; iG<nGradial; iG++)
-				Vsamples[iG] = polPrefac * sqrt(site.alpha) * site.polKernel(iG*dG);
+				Vsamples[iG] = prefac * site.polKernel(iG*dG);
 			response.push_back(std::make_shared<MultipoleResponse>(1, iSite, site.positions.size(), Vsamples, dG));
 		}
 	}
@@ -168,23 +177,13 @@ NonlocalPCM::~NonlocalPCM()
 
 DataGptr NonlocalPCM::chi(const DataGptr& phiTilde) const
 {	DataGptr rhoTilde;
-	for(const std::shared_ptr<MultipoleResponse>& resp: response)
+	for(const auto& resp: response)
 	{	const DataRptr& s = resp->iSite<0 ? shape : siteShape[resp->iSite];
 		switch(resp->l)
-		{	case 0:
-			{	rhoTilde -= resp->V * J(s*I(resp->V * phiTilde));
-				break;
-			}
-			case 1:
-			{	rhoTilde += resp->V * divergence(J(s*I(gradient(resp->V * phiTilde))));
-				break;
-			}
-			case 2:
-			{	rhoTilde -= 1.5 * (resp->V * tensorDivergence(J(s*I(tensorGradient(resp->V * phiTilde)))));
-				break;
-			}
-			default:
-				die("NonlocalPCM: Angular momentum l=%d not implemented.\n", resp->l);
+		{	case 0: rhoTilde -= resp->V * J(s*I(resp->V * phiTilde)); break;
+			case 1: rhoTilde += resp->V * divergence(J(s*I(gradient(resp->V * phiTilde)))); break;
+			case 2: rhoTilde -= 1.5 * (resp->V * tensorDivergence(J(s*I(tensorGradient(resp->V * phiTilde))))); break;
+			default: die("NonlocalPCM: Angular momentum l=%d not implemented.\n", resp->l);
 		}
 	}
 	return rhoTilde;
@@ -207,7 +206,7 @@ void NonlocalPCM::set(const DataGptr& rhoExplicitTilde, const DataGptr& nCavityT
 	//Compute cavity shape function (0 to 1)
 	nCavity = I(nFluid * nCavityTilde);
 	updateCavity();
-	
+
 	//Compute site shape functions with the spherical ansatz:
 	const auto& solvent = fsp.solvents[0];
 	for(unsigned iSite=0; iSite<solvent->molecule.sites.size(); iSite++)
@@ -235,12 +234,14 @@ void NonlocalPCM::minimizeFluid()
 double NonlocalPCM::get_Adiel_and_grad(DataGptr& Adiel_rhoExplicitTilde, DataGptr& Adiel_nCavityTilde, IonicGradient& extraForces) const
 {
 	EnergyComponents& Adiel = ((NonlocalPCM*)this)->Adiel;
-	const DataGptr& phiTilde = state; // that's what we solved for in minimize
+	const DataGptr& phi = state; // that's what we solved for in minimize
 
-	//The "electrostatic" gradient is the potential due to the bound charge alone:
-	Adiel_rhoExplicitTilde = phiTilde - (-4*M_PI)*Linv(O(rhoExplicitTilde));
-	Adiel["Electrostatic"] = 0.5*dot(Adiel_rhoExplicitTilde, O(rhoExplicitTilde)) //True energy if phi was an exact solution
-		+ 0.5*dot(O(phiTilde), rhoExplicitTilde - hessian(phiTilde)); //First order residual correction (remaining error is second order)
+	//First-order correct estimate of electrostatic energy:
+	DataGptr phiExt = coulomb(rhoExplicitTilde);
+	Adiel["Electrostatic"] = -0.5*dot(phi, O(hessian(phi))) + dot(phi - 0.5*phiExt, O(rhoExplicitTilde));
+	
+	//Gradient w.r.t rhoExplicitTilde:
+	Adiel_rhoExplicitTilde = phi - phiExt;
 
 	//The "cavity" gradient is computed by chain rule via the gradient w.r.t to the shape function:
 	const auto& solvent = fsp.solvents[0];
@@ -249,17 +250,17 @@ double NonlocalPCM::get_Adiel_and_grad(DataGptr& Adiel_rhoExplicitTilde, DataGpt
 	{	DataRptr& Adiel_s = resp->iSite<0 ? Adiel_shape : Adiel_siteShape[resp->iSite];
 		switch(resp->l)
 		{	case 0:
-			{	DataRptr IVphi = I(resp->V * phiTilde);
+			{	DataRptr IVphi = I(resp->V * phi);
 				Adiel_s -= 0.5 * (IVphi * IVphi);
 				break;
 			}
 			case 1:
-			{	DataRptrVec IgradVphi = I(gradient(resp->V * phiTilde));
+			{	DataRptrVec IgradVphi = I(gradient(resp->V * phi));
 				Adiel_s -= 0.5 * lengthSquared(IgradVphi);
 				break;
 			}
 			case 2:
-			{	DataRptrTensor ItgradVphi = I(tensorGradient(resp->V * phiTilde));
+			{	DataRptrTensor ItgradVphi = I(tensorGradient(resp->V * phi));
 				Adiel_s -= 0.5 * 1.5
 					* 2*( ItgradVphi[0]*ItgradVphi[0] + ItgradVphi[1]*ItgradVphi[1] + ItgradVphi[2]*ItgradVphi[2]
 						+ ItgradVphi[3]*ItgradVphi[3] + ItgradVphi[4]*ItgradVphi[4] + ItgradVphi[3]*ItgradVphi[4]);

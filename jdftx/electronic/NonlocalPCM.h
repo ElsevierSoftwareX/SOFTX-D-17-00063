@@ -50,6 +50,7 @@ private:
 	RadialFunctionG nFluid; //electron density model for the fluid
 	RadialFunctionG Kkernel; DataRptr epsInv; //for preconditioner
 	DataRptrCollection siteShape; //shape functions for sites
+	static DataGptr coulomb(const DataGptr& rho) { return (-4*M_PI) * Linv(O(rho)); }
 };
 
 #endif // JDFTX_ELECTRONIC_NONLOCALPCM_H

@@ -53,7 +53,7 @@ protected:
 	
 private:
 	double S; //!< cache the entropy, because it is most efficiently computed during getDensities()
-	double Ecorr; DataRptr Ecorr_N; DataRptrVec Ecorr_P; //!< cache the correlation correction and its derivatives, since they are most efficiently computed during getDensities()
+	double Ecorr; DataRptrVec Ecorr_P; //!< cache the correlation correction and its derivatives, since they are most efficiently computed during getDensities()
 };
 
 #endif // JDFTX_FLUID_IDEALGASPOMEGA_H

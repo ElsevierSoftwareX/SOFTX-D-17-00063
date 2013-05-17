@@ -110,7 +110,7 @@ void FluidMixture::initialize(double p, double epsBulkOverride, double epsInfOve
 	logPrintf("   Local polarization-density correlation factors, Crot: %lg  Cpol: %lg\n", Crot, Cpol);
 	for(const FluidComponent* c: component)
 	{	double pMolSq = c->molecule.getDipole().length_squared();
-		if(pMolSq) c->idealGas->corrPrefac = (1./Crot-1.)*3*T/pMolSq;
+		if(pMolSq) c->idealGas->corrPrefac = (1./Crot-1.)*3*T/(pMolSq*c->idealGas->get_Nbulk());
 	}
 	
 	//Initialize preconditioners:
