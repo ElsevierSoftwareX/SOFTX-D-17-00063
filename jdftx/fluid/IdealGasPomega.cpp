@@ -76,7 +76,7 @@ void IdealGasPomega::getDensities(const DataRptr* indep, DataRptr* N, vector3<>&
 {	for(unsigned i=0; i<molecule.sites.size(); i++) N[i]=0;
 	double& S = ((IdealGasPomega*)this)->S;
 	S=0.0;
-	DataRptrVec P;
+	DataRptrVec P; DataRptr Nmol;
 	//Loop over orientations:
 	for(int o=0; o<quad.nOrientations(); o++)
 	{	matrix3<> rot = matrixFromEuler(quad.euler(o));
@@ -88,17 +88,29 @@ void IdealGasPomega::getDensities(const DataRptr* indep, DataRptr* N, vector3<>&
 				trans.taxpy(rot*pos, 1., N_o, N[i]);
 		//Accumulate contributions to the entropy:
 		S += gInfo.dV*dot(N_o, logPomega_o);
-		//Accumulate the polarization density:
-		if(pMol.length_squared()) P += (rot * pMol) * N_o;
+		//Accumulate the polarization density and molecular density:
+		if(pMol.length_squared())
+		{	P += (rot * pMol) * N_o;
+			Nmol += N_o;
+		}
 	}
-	//Compute correlation correction:
-	P0 = sumComponents(P) / gInfo.nr;
-	double& Ecorr = ((IdealGasPomega*)this)->Ecorr;
-	DataRptr& Ecorr_N = ((IdealGasPomega*)this)->Ecorr_N;
-	DataRptrVec& Ecorr_P = ((IdealGasPomega*)this)->Ecorr_P;
-	Ecorr_P = corrPrefac*I(molecule.mfKernel*(molecule.mfKernel*J(P)));
-	Ecorr = 0.5*gInfo.dV*dot(P,Ecorr_P);
-	Ecorr_N = 0;
+	
+	//Compute and cache dipole correlation correction:
+	IdealGasPomega* cache = ((IdealGasPomega*)this);
+	if(pMol.length_squared())
+	{	P0 = sumComponents(P) / gInfo.nr;
+		double Nmin, Nmax; callPref(eblas_capMinMax)(gInfo.nr, Nmol->dataPref(), Nmin, Nmax, 1e-7);
+		DataRptr invNmol = inv(Nmol), Psq = lengthSquared(P);
+		cache->Ecorr = (0.5*corrPrefac)*integral(Psq*invNmol);
+		cache->Ecorr_N = (-0.5*corrPrefac)*Psq*invNmol*invNmol;
+		cache->Ecorr_P = corrPrefac*P*invNmol;
+	}
+	else
+	{	P0 = vector3<>();
+		cache->Ecorr = 0;
+		cache->Ecorr_N = 0;
+		cache->Ecorr_P = 0;
+	}
 }
 
 double IdealGasPomega::compute(const DataRptr* indep, const DataRptr* N, DataRptr* Phi_N, const double Nscale, double& Phi_Nscale) const
@@ -113,12 +125,9 @@ double IdealGasPomega::compute(const DataRptr* indep, const DataRptr* N, DataRpt
 	double invSite0mult = 1./molecule.sites[0]->positions.size();
 	Phi_N[0] -= mu * invSite0mult;
 	PhiNI -= (T+mu)*integral(N[0])* invSite0mult;
-	//Entropy (this part deals with Nscale explicitly, so need to increment Phi_Nscale):
-	Phi_Nscale += T*S;
-	PhiNI += Nscale*T*S;
-	//Correlation correction (this part deals with Nscale explicitly, so need to increment Phi_Nscale):
-	Phi_Nscale += 2*Nscale*Ecorr;
-	PhiNI += Nscale*Nscale*Ecorr;
+	//Entropy and correlation correction (this part deals with Nscale explicitly, so need to increment Phi_Nscale):
+	Phi_Nscale += (T*S + Ecorr);
+	PhiNI += Nscale*(T*S + Ecorr);
 	return PhiNI;
 }
 
@@ -137,7 +146,7 @@ void IdealGasPomega::convertGradients(const DataRptr* indep, const DataRptr* N, 
 		//Collect the contributions from the entropy:
 		Phi_N_o += T*logPomega_o;
 		//Collect the contribution from Phi_P0 and Ecorr_P:
-		if(pMol.length_squared()) Phi_N_o += dot(rot * pMol, Nscale*Ecorr_P) + dot(rot * pMol, Phi_P0);
+		if(pMol.length_squared()) Phi_N_o += Ecorr_N + dot(rot * pMol, Nscale*Ecorr_P) + dot(rot * pMol, Phi_P0);
 		//Propagate Phi_N_o to Phi_logPomega_o and then to Phi_indep:
 		convertGradients_o(o, rot, N_o*Phi_N_o, Phi_indep);
 	}

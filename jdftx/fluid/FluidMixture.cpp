@@ -105,11 +105,13 @@ void FluidMixture::initialize(double p, double epsBulkOverride, double epsInfOve
 	{	chiRot += c->idealGas->get_Nbulk() * c->molecule.getDipole().length_squared()/(3.*T);
 		chiPol += c->idealGas->get_Nbulk() * c->molecule.getAlphaTot();
 	}
-	Crot = (epsBulk>epsInf && chiRot) ? (1./(4.*M_PI*chiRot) - 1./(epsBulk-epsInf)) : 0.;
+	Crot = (epsBulk>epsInf && chiRot) ? (epsBulk-epsInf)/(4.*M_PI*chiRot) : 1.;
 	Cpol = (epsInf>1. && chiPol) ? (epsInf-1.)/(4.*M_PI*chiPol) : 1.;
 	logPrintf("   Local polarization-density correlation factors, Crot: %lg  Cpol: %lg\n", Crot, Cpol);
 	for(const FluidComponent* c: component)
-		c->idealGas->corrPrefac = -4*M_PI*Crot;
+	{	double pMolSq = c->molecule.getDipole().length_squared();
+		if(pMolSq) c->idealGas->corrPrefac = (1./Crot-1.)*3*T/pMolSq;
+	}
 	
 	//Initialize preconditioners:
 	Kindep.resize(component.size());
