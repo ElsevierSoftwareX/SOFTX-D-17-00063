@@ -20,7 +20,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/FluidMixture.h>
 #include <fluid/IdealGasMuEps.h>
 #include <fluid/Fex_H2O_FittedCorrelations.h>
-#include <fluid/Fex_H2O_ScalarEOS.h>
+#include <fluid/Fex_ScalarEOS.h>
 #include <fluid/Fex_H2O_BondedVoids.h>
 #include <core/DataCollection.h>
 #include <core/Operators.h>

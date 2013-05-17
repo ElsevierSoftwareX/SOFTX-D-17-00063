@@ -27,7 +27,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/IdealGasMuEps.h>
 #include <fluid/FluidMixture.h>
 #include <fluid/Fex_H2O_FittedCorrelations.h>
-#include <fluid/Fex_H2O_ScalarEOS.h>
+#include <fluid/Fex_ScalarEOS.h>
 #include <fluid/Fex_H2O_BondedVoids.h>
 #include <fluid/IdealGasMonoatomic.h>
 #include <core/DataIO.h>

@@ -19,8 +19,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <electronic/symbols.h>
 #include <fluid/FluidComponent.h>
-#include <fluid/Fex_H2O_ScalarEOS_internal.h>
-#include <fluid/Fex_H2O_ScalarEOS.h>
+#include <fluid/Fex_ScalarEOS.h>
 #include <fluid/Fex_H2O_BondedVoids.h>
 #include <fluid/Fex_H2O_FittedCorrelations.h>
 #include <fluid/Fex_LJ.h>
@@ -108,7 +107,8 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 			epsInf = 1.77;
 			Pvap = antoinePvap(T, 7.31549, 1794.88, -34.764);
 			sigmaBulk = 4.62e-5;
-			Rvdw = ScalarEOS_eval(T).vdwRadius();
+			eos = std::make_shared<JeffereyAustinEOS>(T);
+			Rvdw = eos->vdwRadius();
 			Res = 1.42;
 			//Site properties:
 			molecule.name = "H2O";
@@ -133,7 +133,7 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 			{	case FittedCorrelations:
 					break;
 				case ScalarEOS:
-					siteO->Rhs = ScalarEOS_eval(T).sphereRadius;
+					siteO->Rhs = 1.36*Angstrom;
 					break;
 				case BondedVoids: 
 				{	siteO->Rhs = Fex_H2O_BondedVoids::RO;
@@ -158,7 +158,8 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 			epsInf = 2.09;
 			Pvap = antoinePvap(T, 5.96288, 1106.94, -54.598);
 			sigmaBulk = 1.71e-5;
-			Rvdw = TaoMasonEOS_eval(T, 536.6*Kelvin, 5328.68*KPascal, 0.216, 0.).vdwRadius();
+			eos = std::make_shared<TaoMasonEOS>(T, 536.6*Kelvin, 5328.68*KPascal, 0.216);
+			Rvdw = eos->vdwRadius();
 			Res = 2.22;
 			//Site properties:
 			molecule.name = "CHCl3";
@@ -166,6 +167,7 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 				siteC->Znuc = 4.; siteC->sigmaNuc = sigmaNucC;
 				siteC->Zelec = 4.256; siteC->aElec = 0.36;
 				siteC->alpha = 6.05; siteC->aPol = 0.36;
+				siteC->Rhs = 2.06*Angstrom;
 			molecule.sites.push_back(siteC);
 			auto siteH = std::make_shared<Molecule::Site>("H",int(AtomicSymbol::H));
 				siteH->Znuc = 1.; siteH->sigmaNuc = sigmaNucH;
@@ -195,7 +197,8 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 			epsInf = 2.13;
 			Pvap = antoinePvap(T, 6.10445, 1265.63, -41.002);
 			sigmaBulk = 1.68e-5;
-			Rvdw = TaoMasonEOS_eval(T, 556.4*Kelvin, 4493*KPascal, 0.194, 0.).vdwRadius();
+			eos = std::make_shared<TaoMasonEOS>(T, 556.4*Kelvin, 4493*KPascal, 0.194);
+			Rvdw = eos->vdwRadius();
 			Res = 1.90;
 			//Site properties:
 			molecule.name = "CCl4";
@@ -203,6 +206,7 @@ Nnorm(0), quad(0), trans(0), idealGas(0), fex(0), offsetIndep(0), offsetDensity(
 				siteC->Znuc = 4.; siteC->sigmaNuc = sigmaNucC;
 				siteC->Zelec = 4.980; siteC->aElec = 0.35;
 				siteC->alpha = 5.24; siteC->aPol = 0.35;
+				siteC->Rhs = 2.17*Angstrom;
 			molecule.sites.push_back(siteC);
 			auto siteCl = std::make_shared<Molecule::Site>("Cl",int(AtomicSymbol::Cl));
 				siteCl->Znuc = 7.; siteCl->sigmaNuc = sigmaNucCl;
@@ -297,8 +301,8 @@ void FluidComponent::addToFluidMixture(FluidMixture* fluidMixture)
 	//Initialize excess functional:
 	switch(functional)
 	{	case ScalarEOS:
-			assert(name == H2O);
-			fex = std::make_shared<Fex_H2O_ScalarEOS>(fluidMixture, this);
+			assert(eos);
+			fex = std::make_shared<Fex_ScalarEOS>(fluidMixture, this, *eos);
 			break;
 		case BondedVoids:
 			assert(name == H2O);

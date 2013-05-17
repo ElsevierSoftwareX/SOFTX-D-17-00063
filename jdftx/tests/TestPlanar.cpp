@@ -21,7 +21,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/IdealGasPsiAlpha.h>
 #include <fluid/IdealGasMuEps.h>
 #include <fluid/IdealGasPomega.h>
-#include <fluid/Fex_H2O_ScalarEOS.h>
+#include <fluid/Fex_ScalarEOS.h>
 
 void setPhi(int i, vector3<> r, double* phiApplied, double* phiWall,
 	double gridLength, double Dfield, double zWall)

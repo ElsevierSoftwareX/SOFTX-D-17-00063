@@ -24,7 +24,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <fluid/IdealGasMuEps.h>
 #include <fluid/IdealGasPomega.h>
 #include <fluid/Fex_H2O_FittedCorrelations.h>
-#include <fluid/Fex_H2O_ScalarEOS.h>
+#include <fluid/Fex_ScalarEOS.h>
 #include <fluid/Fex_H2O_BondedVoids.h>
 
 void initHardSphere(int i, vector3<> r, const vector3<>& r0, double radius, double height, double* phi)

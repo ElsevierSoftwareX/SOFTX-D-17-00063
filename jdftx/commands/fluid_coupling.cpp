@@ -21,7 +21,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <electronic/Everything.h>
 #include <core/Units.h>
 #include <electronic/FluidSolver.h>
-#include <fluid/Fex_H2O_ScalarEOS.h>
+#include <fluid/Fex_ScalarEOS.h>
 
 /*
 EnumStringMap<ConvolutionCouplingSiteModel> couplingMap(

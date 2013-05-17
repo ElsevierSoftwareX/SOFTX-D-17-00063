@@ -18,7 +18,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 -------------------------------------------------------------------*/
 
 #include <fluid/Fex_H2O_BondedVoids.h>
-#include <fluid/Fex_H2O_ScalarEOS_internal.h>
+#include <fluid/Fex_ScalarEOS_internal.h>
 #include <fluid/Fex_LJ.h>
 #include <core/Units.h>
 #include <core/Operators.h>

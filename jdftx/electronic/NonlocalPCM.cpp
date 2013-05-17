@@ -74,7 +74,8 @@ NonlocalPCM::NonlocalPCM(const Everything& e, const FluidSolverParams& fsp)
 		chiPol += c->Nbulk * c->molecule.getAlphaTot();
 	}
 	double sqrtCrot = (epsBulk>epsInf && chiRot) ? sqrt((epsBulk-epsInf)/(4.*M_PI*chiRot)) : 1.;
-	double sqrtCpol = (epsInf>1. && chiPol) ? sqrt((epsInf-1.)/(4.*M_PI*chiPol)) : 1.;
+	double epsInfEff = chiRot ? epsInf : epsBulk; //constrain to epsBulk for molecules with no rotational susceptibility
+	double sqrtCpol = (epsInfEff>1. && chiPol) ? sqrt((epsInfEff-1.)/(4.*M_PI*chiPol)) : 1.;
 	
 	//Rotational and translational response (includes ionic response):
 	const double bessel_jl_by_Gl_zero[3] = {1., 1./3, 1./15}; //G->0 limit of j_l(G)/G^l
