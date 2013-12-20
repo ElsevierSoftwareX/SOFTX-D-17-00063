@@ -116,13 +116,22 @@ void logResume()
 {	globalLog = globalLogOrig;
 }
 
-
+MPIUtil* mpiUtil = 0;
+bool mpiDebugLog = false;
 static double startTime_us; //Time at which system was initialized in microseconds
 
 void initSystem(int argc, char** argv)
 {
-	globalLogOrig = globalLog;
+	if(!mpiUtil) mpiUtil = new MPIUtil(argc, argv);
 	nullLog = fopen("/dev/null", "w");
+	if(!mpiUtil->isHead())
+	{	if(mpiDebugLog)
+		{	char fname[256]; sprintf(fname, "jdftx.%d.mpiDebugLog", mpiUtil->iProcess);
+			globalLog = fopen(fname, "w");
+		}
+		else globalLog = nullLog;
+	}
+	globalLogOrig = globalLog;
 	
 	//Print a welcome banner with useful information
 	printVersionBanner();
@@ -196,7 +205,13 @@ void finalizeSystem(bool successful)
 	#ifdef ENABLE_PROFILING
 	stopWatchManager();
 	#endif
+	
+	if(!mpiUtil->isHead())
+	{	if(mpiDebugLog) fclose(globalLog);
+		globalLog = 0;
+	}
 	fclose(nullLog);
+	delete mpiUtil;
 }
 
 

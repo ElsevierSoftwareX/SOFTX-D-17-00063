@@ -227,6 +227,6 @@ int main(int argc, char** argv)
 	
 	
 	finalizeSystem();
-	if(globalLog != stdout) fclose(globalLog);
+	if(globalLog && globalLog != stdout) fclose(globalLog);
 	return 0;
 }
