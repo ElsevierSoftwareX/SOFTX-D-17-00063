@@ -163,7 +163,16 @@ void initSystem(int argc, char** argv)
 		else
 			logPrintf("Could not determine thread count from SLURM_JOB_CPUS_PER_NODE=\"%s\".\n", slurmCpusPerNode);
 	}
-	logPrintf("Will run with a maximum of %d cpu threads.\n", nProcsAvailable);
+	logPrintf("Current process will run with a maximum of %d cpu threads.\n", nProcsAvailable);
+	
+	//Print total resources used by run:
+	{	int nResources[2] = { nProcsAvailable, 0 };
+		#ifdef GPU_ENABLED
+		nResources[1] = 1;
+		#endif
+		mpiUtil->allReduce(nResources, 2, MPIUtil::ReduceSum);
+		logPrintf("Run totals: %d processes, %d threads, %d GPUs\n", mpiUtil->nProcesses(), nResources[0], nResources[1]);
+	}
 	
 	//Add citations to the code and general framework:
 	Citations::add("Software package", "R. Sundararaman, K. Letchworth-Weaver and T.A. Arias, JDFTx, available from http://jdftx.sourceforge.net (2012)");

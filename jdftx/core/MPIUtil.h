@@ -40,6 +40,12 @@ public:
 	void bcast(complex* data, size_t nData, int root=0) const;
 	void bcast(string& s, int root=0) const;
 	
+	//Reduce functions:
+	enum ReduceOp { ReduceMin, ReduceMax, ReduceSum, ReduceProd };
+	void allReduce(int* data, size_t nData, ReduceOp op) const;
+	void allReduce(double* data, size_t nData, ReduceOp op) const;
+	void allReduce(complex* data, size_t nData, ReduceOp op) const;
+	
 	MPIUtil(int argc, char** argv);
 	~MPIUtil();
 };

@@ -18,6 +18,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 -------------------------------------------------------------------*/
 
 #include <core/MPIUtil.h>
+#include <core/Util.h>
 
 #ifdef MPI_ENABLED
 #include <mpi.h>
@@ -85,3 +86,33 @@ void MPIUtil::bcast(string& s, int root) const
 	}
 }
 
+#ifdef MPI_ENABLED
+static MPI_Op mpiOp(MPIUtil::ReduceOp op)
+{	switch(op)
+	{	case MPIUtil::ReduceMax: return MPI_MAX;
+		case MPIUtil::ReduceMin: return MPI_MIN;
+		case MPIUtil::ReduceSum: return MPI_SUM;
+		case MPIUtil::ReduceProd: return MPI_PROD;
+		default: assert(!"Unknown reduction operation");
+	}
+	return 0;
+}
+#endif
+
+void MPIUtil::allReduce(int* data, size_t nData, MPIUtil::ReduceOp op) const
+{
+	#ifdef MPI_ENABLED
+	if(nProcs>1) MPI_Allreduce(MPI_IN_PLACE, data, nData, MPI_INT, mpiOp(op), MPI_COMM_WORLD);
+	#endif
+}
+
+void MPIUtil::allReduce(double* data, size_t nData, MPIUtil::ReduceOp op) const
+{
+	#ifdef MPI_ENABLED
+	if(nProcs>1) MPI_Allreduce(MPI_IN_PLACE, data, nData, MPI_DOUBLE, mpiOp(op), MPI_COMM_WORLD);
+	#endif
+}
+
+void MPIUtil::allReduce(complex* data, size_t nData, MPIUtil::ReduceOp op) const
+{	if(nProcs>1) allReduce((double*)data, 2*nData, op);
+}
