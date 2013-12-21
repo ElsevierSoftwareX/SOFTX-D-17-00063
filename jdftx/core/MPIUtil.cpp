@@ -28,12 +28,12 @@ MPIUtil::MPIUtil(int argc, char** argv)
 	#ifdef MPI_ENABLED
 	int rc = MPI_Init(&argc, &argv);
 	if(rc != MPI_SUCCESS) { printf("Error starting MPI program. Terminating.\n"); MPI_Abort(MPI_COMM_WORLD, rc); }
-	MPI_Comm_size(MPI_COMM_WORLD, &nProcesses);
-	MPI_Comm_rank(MPI_COMM_WORLD, &iProcess);
+	MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &iProc);
 	#else
 	//No MPI:
-	nProcesses = 1;
-	iProcess = 0;
+	nProcs = 1;
+	iProc = 0;
 	#endif
 }
 
@@ -43,3 +43,45 @@ MPIUtil::~MPIUtil()
 	MPI_Finalize();
 	#endif
 }
+
+void MPIUtil::exit(int errCode) const
+{
+	#ifdef MPI_ENABLED
+	MPI_Abort(MPI_COMM_WORLD, errCode);
+	#else
+	exit(errCode);
+	#endif
+}
+
+void MPIUtil::bcast(int* data, size_t nData, int root) const
+{	
+	#ifdef MPI_ENABLED
+	if(nProcs>1) MPI_Bcast(data, nData, MPI_INT, root, MPI_COMM_WORLD);
+	#endif
+}
+
+void MPIUtil::bcast(double* data, size_t nData, int root) const
+{
+	#ifdef MPI_ENABLED
+	if(nProcs>1) MPI_Bcast(data, nData, MPI_DOUBLE, root, MPI_COMM_WORLD);
+	#endif
+}
+
+void MPIUtil::bcast(complex* data, size_t nData, int root) const
+{	if(nProcs>1) bcast((double*)data, 2*nData, root);
+}
+
+void MPIUtil::bcast(string& s, int root) const
+{	if(nProcs>1)
+	{
+		#ifdef MPI_ENABLED
+		//Synchronize length of string:
+		int len = s.length();
+		bcast(&len, 1, root);
+		if(iProc!=root) s.resize(len);
+		//Bcast content:
+		MPI_Bcast(&s[0], len, MPI_CHAR, root, MPI_COMM_WORLD);
+		#endif
+	}
+}
+

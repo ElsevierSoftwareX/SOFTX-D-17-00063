@@ -64,7 +64,7 @@ void registerHandlers()
 	signal(SIGABRT, sigErrorHandler);
 }
 void sigIntHandler(int sig)
-{	if(feof(stdin)) exit(0);
+{	if(feof(stdin)) mpiUtil->exit(0);
 	resetHandlers();
 	printf(
 		"\n---------------------------------------------\n"
@@ -77,7 +77,7 @@ void sigIntHandler(int sig)
 		printf("Enter [Q/A/I]: "); fflush(stdout);
 		char c = getchar();
 		switch(c)
-		{	case 'q': case 'Q': printf("Quitting now ...\n"); exit(0);
+		{	case 'q': case 'Q': printf("Quitting now ...\n"); mpiUtil->exit(0);
 			case 'a': case 'A':
 				printf("Will quit after current iteration ...\n");
 				killFlag = true; registerHandlers(); return;
@@ -126,7 +126,7 @@ void initSystem(int argc, char** argv)
 	nullLog = fopen("/dev/null", "w");
 	if(!mpiUtil->isHead())
 	{	if(mpiDebugLog)
-		{	char fname[256]; sprintf(fname, "jdftx.%d.mpiDebugLog", mpiUtil->iProcess);
+		{	char fname[256]; sprintf(fname, "jdftx.%d.mpiDebugLog", mpiUtil->iProcess());
 			globalLog = fopen(fname, "w");
 		}
 		else globalLog = nullLog;
@@ -257,7 +257,7 @@ void gdbStackTraceExit(int code)
 {	// From http://stackoverflow.com/questions/4636456/stack-trace-for-c-using-gcc/4732119#4732119
 	char pid_buf[30]; sprintf(pid_buf, "%d", getpid());
     char name_buf[512]; name_buf[readlink("/proc/self/exe", name_buf, 511)]=0;
-	int fdPipe[2]; if(pipe(fdPipe)) { printf("Error creating pipe.\n"); exit(code); }
+	int fdPipe[2]; if(pipe(fdPipe)) { printf("Error creating pipe.\n"); mpiUtil->exit(code); }
 	char message = '\n'; //some random character for sync
     int child_pid = fork();
     if(!child_pid)
@@ -284,7 +284,7 @@ void gdbStackTraceExit(int code)
 		close(fdPipe[1]);
 		waitpid(child_pid,NULL,0);
     }
-    exit(code);
+    mpiUtil->exit(code);
 }
 
 // Stack trace for failed assertions

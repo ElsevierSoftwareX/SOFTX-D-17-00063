@@ -20,12 +20,25 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef JDFTX_CORE_MPIUTIL_H
 #define JDFTX_CORE_MPIUTIL_H
 
+#include <core/string.h>
+#include <core/scalar.h>
+#include <cstdlib>
+
 //! MPI wrapper class
 class MPIUtil
 {
+	int nProcs, iProc;
 public:
-	int nProcesses, iProcess; //!< number of processes and rank
-	bool isHead() { return iProcess==0; } //!< makes code more readable
+	int iProcess() const { return iProc; } //!< rank of current process
+	int nProcesses() const { return nProcs; }  //!< number of processes
+	bool isHead() const { return iProc==0; } //!< whether this is the root process (makes code more readable)
+	void exit(int errCode) const; //!< global exit (kill other MPI processes as well)
+	
+	//Broadcast functions:
+	void bcast(int* data, size_t nData, int root=0) const;
+	void bcast(double* data, size_t nData, int root=0) const;
+	void bcast(complex* data, size_t nData, int root=0) const;
+	void bcast(string& s, int root=0) const;
 	
 	MPIUtil(int argc, char** argv);
 	~MPIUtil();

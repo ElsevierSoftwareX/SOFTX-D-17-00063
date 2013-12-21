@@ -24,7 +24,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 @brief Miscellaneous utilities
 */
 
-#include <core/string.h>
+#include <core/MPIUtil.h>
 #include <map>
 #include <array>
 #include <cstring>
@@ -34,7 +34,6 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <sys/wait.h>
 #include <unistd.h>
 #include <execinfo.h>
-#include <core/MPIUtil.h>
 
 //------------- Common Initialization -----------------
 
@@ -117,7 +116,7 @@ void logResume(); //!< re-enable logging after a logSuspend() call
 		if(mpiUtil->isHead() && globalLog != stdout) \
 			fprintf(stderr, __VA_ARGS__); \
 		finalizeSystem(false); \
-		exit(1); \
+		mpiUtil->exit(1); \
 	}
 
 
