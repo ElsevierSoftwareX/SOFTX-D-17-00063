@@ -29,37 +29,35 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <electronic/SCF.h>
 
 void ElecGradient::init(const Everything& e)
-{	init(e.eInfo.nStates);
-}
-
-void ElecGradient::init(int nStates)
-{	Y.resize(nStates);
-	B.resize(nStates);
+{	eInfo = &e.eInfo;
+	Y.resize(eInfo->nStates);
+	B.resize(eInfo->nStates);
 }
 
 ElecGradient& ElecGradient::operator*=(double alpha)
-{	for(unsigned s=0; s<Y.size(); s++)
-	{	if(Y[s]) Y[s] *= alpha;
-		if(B[s]) B[s] *= alpha;
+{	for(int q=eInfo->qStart; q<eInfo->qStop; q++)
+	{	if(Y[q]) Y[q] *= alpha;
+		if(B[q]) B[q] *= alpha;
 	}
 	return *this;
 }
 
 void axpy(double alpha, const ElecGradient& x, ElecGradient& y)
-{	assert(x.Y.size() == y.Y.size());
-	for(unsigned s=0; s<x.Y.size(); s++)
-	{	if(x.Y[s]) { if(y.Y[s]) axpy(alpha, x.Y[s], y.Y[s]); else y.Y[s] = alpha*x.Y[s]; }
-		if(x.B[s]) { if(y.B[s]) axpy(alpha, x.B[s], y.B[s]); else y.B[s] = alpha*x.B[s]; }
+{	assert(x.eInfo == y.eInfo);
+	for(int q=x.eInfo->qStart; q<x.eInfo->qStop; q++)
+	{	if(x.Y[q]) { if(y.Y[q]) axpy(alpha, x.Y[q], y.Y[q]); else y.Y[q] = alpha*x.Y[q]; }
+		if(x.B[q]) { if(y.B[q]) axpy(alpha, x.B[q], y.B[q]); else y.B[q] = alpha*x.B[q]; }
 	}
 }
 
 double dot(const ElecGradient& x, const ElecGradient& y)
-{	assert(x.Y.size() == y.Y.size());
+{	assert(x.eInfo == y.eInfo);
 	complex result(0,0);
-	for(unsigned s=0; s<x.Y.size(); s++)
-	{	if(x.Y[s] && y.Y[s]) result += dotc(x.Y[s], y.Y[s])*2.0;
-		if(x.B[s] && y.B[s]) result += dotc(x.B[s], y.B[s]);
+	for(int q=x.eInfo->qStart; q<x.eInfo->qStop; q++)
+	{	if(x.Y[q] && y.Y[q]) result += dotc(x.Y[q], y.Y[q])*2.0;
+		if(x.B[q] && y.B[q]) result += dotc(x.B[q], y.B[q]);
 	}
+	mpiUtil->allReduce(&result.real(), 1, MPIUtil::ReduceSum, true);
 	return result.real();
 }
 
@@ -68,13 +66,11 @@ ElecGradient clone(const ElecGradient& x)
 }
 
 void randomize(ElecGradient& x)
-{	randomize(x.Y);
-	for(unsigned s=0; s<x.Y.size(); s++)
-		if(x.B[s])
-		{	complex* Bdata = x.B[s].data();
-			for(unsigned i=0; i<x.B[s].nData(); i++)
-				Bdata[i] = Random::normalComplex();
-			x.B[s] = dagger_symmetrize(x.B[s]); //make hermitian
+{	randomize(x.Y, *x.eInfo);
+	for(int q=x.eInfo->qStart; q<x.eInfo->qStop; q++)
+		if(x.B[q])
+		{	randomize(x.B[q]);
+			x.B[q] = dagger_symmetrize(x.B[q]); //make hermitian
 		}
 }
 
@@ -92,7 +88,8 @@ void ElecMinimizer::step(const ElecGradient& dir, double alpha)
 		if(dir.B[s]) axpy(alpha, dir.B[s], eVars.B[s]);
 	}
 	if(eInfo.spinRestricted)
-	{	for(int q=0; q<eInfo.nStates/2; q++)
+	{	if(mpiUtil->nProcesses()>1) die("Spin restriction not yet implemented in MPI mode.\n");
+		for(int q=0; q<eInfo.nStates/2; q++)
 		{	int qOther = q+eInfo.nStates/2;
 			eVars.Y[qOther] *= 0.;
 			eVars.Y[qOther] += eVars.Y[q]; //apply spin restriction (not using operator= because it also changes quantum number)
@@ -105,7 +102,8 @@ double ElecMinimizer::compute(ElecGradient* grad)
 	if(grad) grad->init(e);
 	double ener = e.eVars.elecEnergyAndGrad(e.ener, grad, precond ? &Kgrad : 0);
 	if(grad && eInfo.spinRestricted)
-	{	for(int q=0; q<eInfo.nStates/2; q++)
+	{	if(mpiUtil->nProcesses()>1) die("Spin restriction not yet implemented in MPI mode.\n");
+		for(int q=0; q<eInfo.nStates/2; q++)
 		{	//Move second spin channel gradient contributions to the first one (due to spin-restriction constraint)
 			int qOther = q+eInfo.nStates/2;
 			grad->Y[q] += grad->Y[qOther]; grad->Y[qOther].free();
@@ -202,7 +200,7 @@ void elecMinimize(Everything& e)
 	}
 	else
 	{	logPrintf("Minimization will be done independently for each quantum number.\n");
-		for(int q = 0; q < e.eInfo.nStates; q++)
+		for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 		{	logPrintf("\n---- Minimization of quantum number: %i  kpoint: [%1.6f, %1.6f, %1.6f]  weight: %1.6f",
 						q, e.eInfo.qnums[q].k[0], e.eInfo.qnums[q].k[1], e.eInfo.qnums[q].k[2], e.eInfo.qnums[q].weight);
 			if(e.eInfo.qnums[q].spin)
@@ -237,7 +235,7 @@ void elecFluidMinimize(Everything &e)
 			eVars.elecEnergyAndGrad(e.ener, 0, 0, true);
 			eInfo.fillingsUpdate=ElecInfo::FermiFillingsAux; eInfo.subspaceRotation=true;
 			//Update B:
-			for(int q=0; q<eInfo.nStates; q++) eVars.B[q] = eVars.Hsub[q];
+			for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++) eVars.B[q] = eVars.Hsub[q];
 			eVars.HauxInitialized = true;
 		}
 		else //constant mu mode
@@ -247,11 +245,11 @@ void elecFluidMinimize(Everything &e)
 	
 	//Prevent change in mu from abruptly changing electron count:
 	if(eInfo.fillingsUpdate==ElecInfo::FermiFillingsAux && !std::isnan(eInfo.mu))
-	{	for(int q=0; q<eInfo.nStates; q++)
+	{	for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 			eVars.B[q].diagonalize(eVars.B_evecs[q], eVars.B_eigs[q]);
 		double mu = eInfo.findMu(eVars.B_eigs, eInfo.nElectrons);
 		logPrintf("Shifting auxilliary hamiltonian by %lf to set nElectrons=%lf\n", eInfo.mu-mu, eInfo.nElectrons);
-		for(int q=0; q<eInfo.nStates; q++)
+		for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 			eVars.B[q] += eye(eInfo.nBands)*(eInfo.mu-mu);
 	}
 	

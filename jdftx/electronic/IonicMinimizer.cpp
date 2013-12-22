@@ -134,7 +134,6 @@ IonicMinimizer::IonicMinimizer(Everything& e) : e(e)
 
 void IonicMinimizer::step(const IonicGradient& dir, double alpha)
 {	static StopWatch watch("WavefunctionDrag"); watch.start();
-	const ElecInfo& eInfo = e.eInfo;
 	ElecVars& eVars = e.eVars;
 	IonInfo& iInfo = e.iInfo;
 	
@@ -151,7 +150,7 @@ void IonicMinimizer::step(const IonicGradient& dir, double alpha)
 		}
 		
 		if(drColumns.size()) 
-		{	for(int q=0; q<eInfo.nStates; q++)
+		{	for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 			{
 				//Get atomic orbitals at old positions:
 				eVars.Y[q].free();

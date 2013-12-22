@@ -101,7 +101,7 @@ void LatticeMinimizer::step(const matrix3<>& dir, double alpha)
 	std::vector<matrix> coeff(e.eInfo.nStates); //best fit coefficients
 	int nAtomic = e.iInfo.nAtomicOrbitals();
 	if(e.cntrl.dragWavefunctions && nAtomic)
-		for(int q=0; q<e.eInfo.nStates; q++)
+		for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 		{	//Get atomic orbitals for old lattice:
 			e.eVars.Y[q].free();
 			ColumnBundle psi = e.iInfo.getAtomicOrbitals(q);
@@ -119,7 +119,7 @@ void LatticeMinimizer::step(const matrix3<>& dir, double alpha)
 
 	//Restore wavefunctions from atomic orbitals:
 	if(e.cntrl.dragWavefunctions && nAtomic)
-		for(int q=0; q<e.eInfo.nStates; q++)
+		for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 		{	//Get atomic orbitals for new lattice:
 			ColumnBundle psi = e.iInfo.getAtomicOrbitals(q);
 			//Reconstitute and orthonormalize wavefunctions:

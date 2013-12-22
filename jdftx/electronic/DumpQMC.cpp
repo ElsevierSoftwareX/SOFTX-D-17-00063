@@ -206,6 +206,7 @@ void Dump::dumpQMC()
 		"-------------\n";
 	int nSpins = (eInfo.spinType==SpinNone ? 1 : 2);
 	int nkPoints = eInfo.nStates / nSpins;
+	if(mpiUtil->nProcesses()>1) die("QMC export not yet implemented in MPI mode.\n");
 	ofs <<
 		" Number of k-points\n"
 		"  " << nkPoints << "\n";

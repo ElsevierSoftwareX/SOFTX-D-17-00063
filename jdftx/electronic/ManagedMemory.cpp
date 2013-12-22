@@ -139,6 +139,15 @@ void ManagedMemory::toGpu()
 
 #endif
 
+void ManagedMemory::bcast(int root)
+{	if(mpiUtil->nProcesses()>1)
+		mpiUtil->bcast((double*)data(), 2*nData(), root);
+}
+void ManagedMemory::allReduce(MPIUtil::ReduceOp op, bool safeMode)
+{	assert(op!=MPIUtil::ReduceProd && op!=MPIUtil::ReduceMax && op!=MPIUtil::ReduceMin); //not supported for complex
+	if(mpiUtil->nProcesses()>1)
+		mpiUtil->allReduce((double*)data(), 2*nData(), op, safeMode);
+}
 
 
 void ManagedMemory::write(const char *fname) const

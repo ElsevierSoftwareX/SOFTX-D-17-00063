@@ -54,7 +54,7 @@ struct LCAOminimizer : Minimizable<ElecGradient> //Uses only the B entries of El
 		//Simplified version of ElecVars::orthonormalize()
 		std::vector<matrix> B_evecs(e.eInfo.nStates);
 		std::vector<diagMatrix> B_eigs(e.eInfo.nStates);
-		for(int q=0; q<e.eInfo.nStates; q++)
+		for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 		{	B[q].diagonalize(B_evecs[q], B_eigs[q]);
 			eVars.C[q] = eVars.Y[q] * B_evecs[q];
 			for(unsigned sp=0; sp<e.iInfo.species.size(); sp++)
@@ -64,19 +64,22 @@ struct LCAOminimizer : Minimizable<ElecGradient> //Uses only the B entries of El
 		//Update fillings (Aux algorithm, fixed N only):
 		double mu = e.eInfo.findMu(B_eigs, e.eInfo.nElectrons), dmuNum=0.0, dmuDen=0.0;
 		std::vector<diagMatrix> F(e.eInfo.nStates);
-		for(int q=0; q<e.eInfo.nStates; q++)
+		for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 			F[q] = e.eInfo.fermi(mu, B_eigs[q]);
 		e.eInfo.updateFillingsEnergies(F, ener);
 		
 		//Update density:
-		for(DataRptr& ns: eVars.n) ns = 0;
+		for(DataRptr& ns: eVars.n) initZero(ns, e.gInfo);
 		e.iInfo.augmentDensityInit();
-		for(int q=0; q<e.eInfo.nStates; q++)
+		for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 		{	eVars.n[e.eInfo.qnums[q].index()] += e.eInfo.qnums[q].weight * diagouterI(F[q], eVars.C[q], &e.gInfo);
 			e.iInfo.augmentDensitySpherical(e.eInfo.qnums[q], F[q], eVars.VdagC[q]); //pseudopotential contribution
 		}
 		e.iInfo.augmentDensityGrid(eVars.n);
-		for(DataRptr& ns: eVars.n) e.symm.symmetrize(ns);
+		for(DataRptr& ns: eVars.n)
+		{	e.symm.symmetrize(ns);
+			ns->allReduce(MPIUtil::ReduceSum);
+		}
 		
 		//Update local potential:
 		eVars.EdensityAndVscloc(ener, exCorr);
@@ -88,7 +91,7 @@ struct LCAOminimizer : Minimizable<ElecGradient> //Uses only the B entries of El
 
 		ener.E["U"] = e.iInfo.computeU(F, eVars.C, grad ? &HC : 0);
 		ener.E["NI"] = 0.;
-		for(int q=0; q<e.eInfo.nStates; q++)
+		for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 		{	const QuantumNumber& qnum = e.eInfo.qnums[q];
 			
 			//KE and Nonlocal pseudopotential from precomputed subspace matrix:
@@ -107,11 +110,12 @@ struct LCAOminimizer : Minimizable<ElecGradient> //Uses only the B entries of El
 				dmuDen += qnum.weight * trace(fprime);
 			}
 		}
+		mpiUtil->allReduce(&ener.E["NI"], 1, MPIUtil::ReduceSum);
 		
 		//Final gradient propagation to auxiliary Hamiltonian:
 		if(grad) 
 		{	matrix dmuContrib = eye(nBands) * (dmuNum/dmuDen); //contribution due to Nconstraint via the mu gradient 
-			for(int q=0; q<e.eInfo.nStates; q++)
+			for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 			{	const QuantumNumber& qnum = e.eInfo.qnums[q];
 				matrix gradF = eVars.Hsub[q]-B_eigs[q]-dmuContrib; //gradient w.r.t fillings
 				grad->B[q] = qnum.weight * dagger_symmetrize(B_evecs[q] * e.eInfo.fermiGrad(mu, B_eigs[q], gradF) * dagger(B_evecs[q]));
@@ -162,7 +166,7 @@ int ElecVars::LCAO()
 
 	//Get orthonormal atomic orbitals and non-interacting part of subspace Hamiltonian:
 	lcao.nBands = std::max(nAtomic, std::max(eInfo.nBands, int(ceil(1+eInfo.nElectrons/2))));
-	for(int q=0; q<eInfo.nStates; q++)
+	for(int q=eInfo.qStart; q<eInfo.qStop; q++)
 	{	Y[q] = iInfo.getAtomicOrbitals(q, lcao.nBands-nAtomic);
 		if(nAtomic<lcao.nBands) Y[q].randomize(nAtomic, lcao.nBands); //Randomize extra columns if any
 		matrix YtoC = invsqrt(Y[q]^O(Y[q], &lcao.VdagY[q]));
@@ -200,7 +204,7 @@ int ElecVars::LCAO()
 		iInfo.augmentDensityGridGrad(Vscloc); //Update Vscloc projections on ultrasoft pseudopotentials
 		
 		//Set initial auxiliary hamiltonian to the subspace Hamiltonian:
-		for(int q=0; q<eInfo.nStates; q++)
+		for(int q=eInfo.qStart; q<eInfo.qStop; q++)
 		{	ColumnBundle HYq = Idag_DiagV_I(Y[q], Vscloc[eInfo.qnums[q].index()]); //local self-consistent potential
 			std::vector<matrix> HVdagYq(iInfo.species.size());
 			iInfo.augmentDensitySphericalGrad(eInfo.qnums[q], eye(lcao.nBands), lcao.VdagY[q], HVdagYq); //ultrasoft augmentation
@@ -211,7 +215,7 @@ int ElecVars::LCAO()
 		if(nPasses==2 && pass==0) //update the density for next pass
 		{	for(DataRptr& ns: n) ns=0;
 			iInfo.augmentDensityInit();
-			for(int q=0; q<eInfo.nStates; q++)
+			for(int q=eInfo.qStart; q<eInfo.qStop; q++)
 			{	matrix Bq_evecs; diagMatrix Bq_eigs; lcao.B[q].diagonalize(Bq_evecs, Bq_eigs);
 				C[q] = Y[q] * Bq_evecs;
 				for(unsigned sp=0; sp<iInfo.species.size(); sp++)
@@ -236,7 +240,7 @@ int ElecVars::LCAO()
 	lcao.minimize(mp);
 	
 	//Set wavefunctions to eigenvectors:
-	for(int q=0; q<eInfo.nStates; q++)
+	for(int q=eInfo.qStart; q<eInfo.qStop; q++)
 	{	matrix evecs; diagMatrix eigs;
 		Hsub[q].diagonalize(evecs, eigs);
 		if(eInfo.nBands<lcao.nBands) evecs = evecs(0,lcao.nBands, 0,eInfo.nBands); //drop extra eigenvectors

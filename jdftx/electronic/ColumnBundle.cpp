@@ -33,7 +33,7 @@ void ColumnBundle::init(int nc, size_t len, const Basis *b, const QuantumNumber*
 	basis = b;
 	qnum = q;
 
-	if(nCols() == 0) return; //must be default constructor
+	if(nCols() == 0) { memFree(); return; } //must be default constructor or assignment to empty ColumnBundle
 	assert(colLength() != 0);
 	memInit(nCols()*colLength(), onGpu); //in base class ManagedMemory
 }
@@ -54,7 +54,7 @@ ColumnBundle::ColumnBundle(int nc, size_t len, const Basis *b, const QuantumNumb
 // Copy constructor
 ColumnBundle::ColumnBundle(const ColumnBundle &Y)
 {	init(Y.nCols(), Y.colLength(), Y.basis, Y.qnum, Y.isOnGpu()); //initialize size and storage
-	memcpy((ManagedMemory&)*this, (const ManagedMemory&)Y); //copy data
+	if(nData()) memcpy((ManagedMemory&)*this, (const ManagedMemory&)Y); //copy data
 }
 // Move constructor
 ColumnBundle::ColumnBundle(ColumnBundle&& Y)
@@ -73,7 +73,7 @@ ColumnBundle ColumnBundle::similar(int ncOverride) const
 // Copy-assignment
 ColumnBundle& ColumnBundle::operator=(const ColumnBundle &Y)
 {	init(Y.nCols(), Y.colLength(), Y.basis, Y.qnum, Y.isOnGpu()); //initialize size and storage
-	memcpy((ManagedMemory&)*this, (const ManagedMemory&)Y); //copy data
+	if(nData()) memcpy((ManagedMemory&)*this, (const ManagedMemory&)Y); //copy data
 	return *this;
 }
 // Move-assignment
@@ -140,11 +140,13 @@ void ColumnBundle::accumColumn(int i, const complexDataGptr& full)
 
 
 // Allocate an array of ColumnBundles
-void init(std::vector<ColumnBundle>& Y, int nbundles, int ncols, const Basis* basis, const QuantumNumber* qnum)
+void init(std::vector<ColumnBundle>& Y, int nbundles, int ncols, const Basis* basis, const ElecInfo* eInfo)
 {	Y.resize(nbundles);
-	if(ncols && basis && qnum)
-		for(int i=0; i<nbundles; i++)
-			Y[i].init(ncols, basis[i].nbasis, basis+i, qnum+i, isGpuEnabled());
+	if(ncols && basis && eInfo)
+	{	assert(nbundles >= eInfo->qStop);
+		for(int q=eInfo->qStart; q<eInfo->qStop; q++)
+			Y[q].init(ncols, basis[q].nbasis, basis+q, &eInfo->qnums[q], isGpuEnabled());
+	}
 }
 
 
@@ -161,12 +163,14 @@ void ColumnBundle::randomize(int colStart, int colStop)
 			thisData[index(i,j)] = Random::normalComplex(sigma);
 	}
 }
-void randomize(std::vector<ColumnBundle>& Y)
-{	for(ColumnBundle& y: Y) if(y) y.randomize(0, y.nCols());
+void randomize(std::vector<ColumnBundle>& Y, const ElecInfo& eInfo)
+{	for(int q=eInfo.qStart; q<eInfo.qStop; q++)
+		if(Y[q]) Y[q].randomize(0, Y[q].nCols());
 }
 
-void write(const std::vector<ColumnBundle>& Y, const char* fname)
-{	FILE *fp = fopen(fname, "w");
+void write(const std::vector<ColumnBundle>& Y, const char* fname, const ElecInfo& eInfo)
+{	if(mpiUtil->nProcesses()>1) die("ColumnBundle array write not yet implemented in MPI mode.\n");
+	FILE *fp = fopen(fname, "w");
 	if(!fp) die("Error opening %s for writing.\n", fname);
 	for(const ColumnBundle& y: Y) y.write(fp);
 	fclose(fp);
@@ -319,7 +323,7 @@ void readRealSpace(std::vector<ColumnBundle>& Y, const char *fnamePattern, const
 
 // Read/write an array of ColumnBundles from/to a file
 void read(std::vector<ColumnBundle>& Y, const char *fname, const Everything& e)
-{
+{	if(mpiUtil->nProcesses()>1) die("ColumnBundle array read not yet implemented in MPI mode.\n");
 	if(e.eVars.readWfnsRealspace) readRealSpace(Y, fname, e);
 	else
 	{	//Fourier space read:

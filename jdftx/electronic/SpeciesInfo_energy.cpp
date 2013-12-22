@@ -53,7 +53,6 @@ double SpeciesInfo::computeU(const std::vector<diagMatrix>& F, const std::vector
 {	if(!plusU.size()) return 0.; //no U for this species
 	const ElecInfo& eInfo = e->eInfo;
 	int nSpins = eInfo.spinType==SpinNone ? 1 : 2; //number of spins
-	int qCount = eInfo.nStates/nSpins; //number of states of each spin
 	double wSpinless = 0.5*nSpins; //factor multiplying state weights to get to spinless weights
 	double Utot = 0.;
 	for(int s=0; s<nSpins; s++)
@@ -61,13 +60,14 @@ double SpeciesInfo::computeU(const std::vector<diagMatrix>& F, const std::vector
 		{	int mCount = 2*Uparams.l+1; //number of m's at given l
 			double prefac = 0.5 * Uparams.UminusJ / wSpinless;
 			//Compute the density matrix:
-			matrix rho;
-			for(int q=s*qCount; q<(s+1)*qCount; q++)
+			matrix rho = zeroes(atpos.size(), atpos.size());
+			for(int q=eInfo.qStart; q<eInfo.qStop; q++) if(eInfo.qnums[q].index()==s)
 			{	ColumnBundle Opsi(C[q].similar(atpos.size() * mCount));
 				setOpsi(Opsi, Uparams.n, Uparams.l);
 				matrix CdagOpsi = C[q] ^ Opsi;
 				rho += (eInfo.qnums[q].weight*wSpinless) * dagger(CdagOpsi) * F[q] * CdagOpsi;
 			}
+			rho.allReduce(MPIUtil::ReduceSum);
 			//Symmetrize:
 			for(unsigned sp=0; sp<e->iInfo.species.size(); sp++)
 				if(e->iInfo.species[sp].get()==this)
@@ -88,7 +88,7 @@ double SpeciesInfo::computeU(const std::vector<diagMatrix>& F, const std::vector
 			}
 			//Propagate gradient from U_rho to wavefunctions or ionic positions if required:
 			if(HC || forces)
-			{	for(int q=s*qCount; q<(s+1)*qCount; q++)
+			{	for(int q=eInfo.qStart; q<eInfo.qStop; q++) if(eInfo.qnums[q].index()==s)
 				{	ColumnBundle Opsi(C[q].similar(atpos.size() * mCount));
 					std::vector<ColumnBundle> dOpsi;
 					setOpsi(Opsi, Uparams.n, Uparams.l);

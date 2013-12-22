@@ -72,11 +72,11 @@ public:
 	void randomize(int colStart, int colStop); //!< randomize a selected range of columns
 };
 
-//! Initialize an array of column bundles (with appropriate wavefunction sizes if basis, qnum and ncols are all non-zero)
-void init(std::vector<ColumnBundle>&, int nbundles, int ncols=0, const Basis* basis=0, const QuantumNumber* qnum=0);
+//! Initialize an array of column bundles (with appropriate wavefunction sizes if ncols, basis, qnum and eInfo are all non-zero)
+void init(std::vector<ColumnBundle>&, int nbundles, int ncols=0, const Basis* basis=0, const ElecInfo* eInfo=0);
 
-void randomize(std::vector<ColumnBundle>&);
-void write(const std::vector<ColumnBundle>&, const char *fname);
+void randomize(std::vector<ColumnBundle>&, const ElecInfo& eInfo);
+void write(const std::vector<ColumnBundle>&, const char *fname, const ElecInfo& eInfo);
 void read(std::vector<ColumnBundle>&, const char *fname, const Everything&);
 
 // Used in the CG template Minimize.h

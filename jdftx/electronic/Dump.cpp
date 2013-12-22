@@ -104,10 +104,7 @@ void Dump::operator()(DumpFrequency freq, int iter)
 	if((ShouldDump(State) and eInfo.fillingsUpdate!=ElecInfo::ConstantFillings) or ShouldDump(Fillings))
 	{	//Dump fillings
 		StartDump("fillings")
-		FILE* fp = fopen(fname.c_str(), "w");
-		if(!fp) die("Error opening %s for writing.\n", fname.c_str());
-		eInfo.printFillings(fp);
-		fclose(fp);
+		eInfo.write(eVars.F, fname.c_str());
 		EndDump
 	}
 	
@@ -115,7 +112,7 @@ void Dump::operator()(DumpFrequency freq, int iter)
 	{
 		//Dump wave functions
 		StartDump("wfns")
-		write(eVars.C, fname.c_str());
+		write(eVars.C, fname.c_str(), eInfo);
 		EndDump
 		
 		if(eVars.fluidSolver)
@@ -128,10 +125,7 @@ void Dump::operator()(DumpFrequency freq, int iter)
 		if(eInfo.fillingsUpdate!=ElecInfo::ConstantFillings and eInfo.fillingsUpdate==ElecInfo::FermiFillingsAux)
 		{	//Dump auxilliary hamiltonian
 			StartDump("Haux")
-			FILE* fp = fopen(fname.c_str(), "w");
-			if(!fp) die("Error opening %s for writing.\n", fname.c_str());
-			write(eVars.B, fname.c_str());
-			fclose(fp);
+			eInfo.write(eVars.B, fname.c_str());
 			EndDump
 		}
 	}
@@ -192,7 +186,7 @@ void Dump::operator()(DumpFrequency freq, int iter)
 	
 	if(ShouldDump(HsubEvecs))
 	{	StartDump("Hsub_evecs")
-		write(eVars.Hsub_evecs, fname.c_str());
+		eInfo.write(eVars.Hsub_evecs, fname.c_str());
 		EndDump
 	}
 	
@@ -218,14 +212,7 @@ void Dump::operator()(DumpFrequency freq, int iter)
 	
 	if(ShouldDump(BandEigs))
 	{	StartDump("eigenvals")
-		FILE* fp = fopen(fname.c_str(), "w");
-		if(!fp) die("Error opening %s for writing.\n", fname.c_str());
-		for(int q=0; q < eInfo.nStates; q++)
-		{	for (int b=0; b < eInfo.nBands; b++)
-				fprintf(fp, "%18.10le ", eVars.Hsub_eigs[q][b]);
-			fprintf(fp, "\n");
-		}
-		fclose(fp);
+		eInfo.write(eVars.Hsub_eigs, fname.c_str());
 		EndDump
 	}
 
@@ -289,16 +276,19 @@ void Dump::operator()(DumpFrequency freq, int iter)
 	
 	if(ShouldDumpNoAll(Momenta))
 	{	StartDump("momenta")
-		FILE* fp = fopen(fname.c_str(), "w");
-		for(int q=0; q<eInfo.nStates; q++) //kpoint/spin
+		std::vector<matrix> momenta(eInfo.nStates);
+		for(int q=eInfo.qStart; q<eInfo.qStop; q++) //kpoint/spin
+		{	momenta[q] = zeroes(eInfo.nBands, eInfo.nBands*3);
 			for(int k=0; k<3; k++) //cartesian direction
-				((eVars.C[q] ^ D(eVars.C[q], k)) * complex(0,e->gInfo.detR)).write(fp);
-		fclose(fp);
+				momenta[q].set(0,eInfo.nBands, eInfo.nBands*k,eInfo.nBands*(k+1),
+					complex(0,e->gInfo.detR) * (eVars.C[q] ^ D(eVars.C[q], k)) );
+		}
+		eInfo.write(momenta, fname.c_str(), eInfo.nBands, eInfo.nBands*3);
 		EndDump
 	}
 	
 	if(ShouldDumpNoAll(RealSpaceWfns))
-	{	for(int q=0; q<eInfo.nStates; q++)
+	{	for(int q=eInfo.qStart; q<eInfo.qStop; q++)
 			for(int b=0; b<eInfo.nBands; b++)
 			{	ostringstream prefixStream;
 				prefixStream << "wfns_" << q << '_' << b << ".rs";
@@ -569,6 +559,9 @@ void dumpExcitations(const Everything& e, const char* filename)
 {
 		const GridInfo& g = e.gInfo;
 	
+		if(mpiUtil->nProcesses()>1) //TODO: Somehow have the MPI processes coordinate the write process below
+			die("Dump excitations not yet implemented in MPI mode.\n");
+		
 		FILE* fp = fopen(filename, "w");
 		if(!fp) die("Error opening %s for writing.\n", filename);
 	
@@ -611,7 +604,7 @@ void dumpExcitations(const Everything& e, const char* filename)
 		applyFunc_r(g, Moments::rn_pow_x, 2, g.R, 1, vector3<>(0.,0.,0.), r2->data());
 		
 		// Find and cache all excitations in system (between same qnums)
-		for(int q=0; q<e.eInfo.nStates; q++)
+		for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 		{	
 			int HOMO = e.eInfo.findHOMO(q);
 					
@@ -656,4 +649,5 @@ void dumpExcitations(const Everything& e, const char* filename)
 		fprintf(fp, "qnum,\tinitial,\tfinal,\tdE,\t|<psi1|r|psi2>|^2 (real, imag, norm)\n");
 		for(size_t i=0; i<excitations.size(); i++)
 			fprintf(fp, "%i \t %i \t %i \t %.5e \t %.5e \t %.5e \t %.5e\n", excitations[i].q, excitations[i].o, excitations[i].u, excitations[i].dE, excitations[i].dreal, excitations[i].dimag, excitations[i].dnorm);
+		fclose(fp);
 }

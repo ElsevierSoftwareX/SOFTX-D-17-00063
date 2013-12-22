@@ -210,10 +210,6 @@ diagMatrix diag(const matrix &m); //!< obtain the real diagonal part of a hermit
 diagMatrix eye(int N); //!< identity
 matrix zeroes(int nRows, int nCols); //!< a dense-matrix of zeroes
 
-//------- Matrix array I/O ----------------
-void read(std::vector<matrix>&, const char *fname);
-void write(const std::vector<matrix>&, const char *fname);
-
 //! A block matrix formed by repeating (tiling) a dense matrix along the diagonal
 class tiledBlockMatrix
 {

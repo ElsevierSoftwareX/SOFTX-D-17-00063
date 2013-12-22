@@ -136,7 +136,7 @@ public:
 	double applyHamiltonian(int q, const diagMatrix& Fq, ColumnBundle& HCq, std::vector<matrix>& HVdagCq, Energies& ener, bool need_Hsub=false);
 	
 	//! Propagates the gradient wrt orthonormal C (HCq) to gradient wrt Y and B (if given).
-	void orthonormalizeGrad(int q, const diagMatrix& Fq, const ColumnBundle& HCq, ColumnBundle& gradYq, ColumnBundle* KgradYq=0, matrix* gradBq=0, matrix* KgradBq=0);
+	void orthonormalizeGrad(int q, const diagMatrix& Fq, const ColumnBundle& HCq, ColumnBundle& gradYq, double KErollover=1., ColumnBundle* KgradYq=0, matrix* gradBq=0, matrix* KgradBq=0);
 
 	//! Returns the total single particle energy and gradient of all KS orbitals
 	double bandEnergyAndGrad(int q, Energies& ener, ColumnBundle* grad=0, ColumnBundle* Kgrad=0);
