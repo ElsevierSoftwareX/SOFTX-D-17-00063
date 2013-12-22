@@ -160,7 +160,7 @@ void MPIUtil::fopenRead(File& fp, const char* fname, size_t fsizeExpected, const
 	#ifdef MPI_ENABLED
 	if(MPI_File_open(MPI_COMM_WORLD, (char*)fname, MPI_MODE_RDONLY, MPI_INFO_NULL, &fp) != MPI_SUCCESS)
 	#else
-	fp = fopen(fname, "rb");
+	fp = ::fopen(fname, "rb");
 	if(!fp)
 	#endif
 		die("Error opening file '%s' for reading.\n", fname);
@@ -171,7 +171,7 @@ void MPIUtil::fopenWrite(File& fp, const char* fname) const
 	#ifdef MPI_ENABLED
 	if(MPI_File_open(MPI_COMM_WORLD, (char*)fname, MPI_MODE_WRONLY, MPI_INFO_NULL, &fp) != MPI_SUCCESS)
 	#else
-	fp = fopen(fname, "wb");
+	fp = ::fopen(fname, "wb");
 	if(!fp)
 	#endif
 		 die("Error opening file '%s' for writing.\n", fname);
@@ -182,7 +182,7 @@ void MPIUtil::fclose(File& fp) const
 	#ifdef MPI_ENABLED
 	MPI_File_close(&fp);
 	#else
-	fclose(fp);
+	::fclose(fp);
 	#endif
 }
 
@@ -198,7 +198,7 @@ void MPIUtil::fseek(File fp, long offset, int whence) const
 	}
 	if(MPI_File_seek(fp, offset, mpi_whence) != MPI_SUCCESS)
 	#else
-	if(fseek(fp, offset, whence) != 0)
+	if(::fseek(fp, offset, whence) != 0)
 	#endif
 		die("Error in file seek.\n");
 }
@@ -211,7 +211,7 @@ void MPIUtil::fread(void *ptr, size_t size, size_t nmemb, File fp) const
 	int count; MPI_Get_count(&status, MPI_BYTE, &count);
 	if(size_t(count) != size*nmemb)
 	#else
-	if(fread(ptr, size, nmemb, fp) != nmemb)
+	if(::fread(ptr, size, nmemb, fp) != nmemb)
 	#endif
 		die("Error in file read.\n");
 }
@@ -224,7 +224,7 @@ void MPIUtil::fwrite(const void *ptr, size_t size, size_t nmemb, File fp) const
 	int count; MPI_Get_count(&status, MPI_BYTE, &count);
 	if(size_t(count) != size*nmemb)
 	#else
-	if(fwrite(ptr, size, nmemb, fp) != nmemb)
+	if(::fwrite(ptr, size, nmemb, fp) != nmemb)
 	#endif
 		die("Error in file write.\n");
 }
