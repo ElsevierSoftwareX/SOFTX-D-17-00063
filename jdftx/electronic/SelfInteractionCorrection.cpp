@@ -101,32 +101,39 @@ double SelfInteractionCorrection::coulombExciton(int q1, int n1, int q2, int n2)
 	return 0.5*dot(J(density_2), O((*e->coulomb)(J(-density_1))));
 }
 
-void SelfInteractionCorrection::dump(const char* filenamePattern)
+void SelfInteractionCorrection::dump(const char* filename)
 {
-	// Prepares to dump
-	string filename(filenamePattern);
-	
 	if(e->exCorr.exxFactor())
 	{	logPrintf("WARNING: Perdew-Zunger self-interaction correction can't be used with exact exchange!\n");
 		return;
 	}
 	
-	logPrintf("Dumping '%s'... \t", filename.c_str());  logFlush();
-	
-	FILE* fp = fopen(filename.c_str(), "w");
-	if(!fp) die("Error opening %s for writing.\n", filename.c_str());
-	
-	fprintf(fp, "WARNING: Self-Interaction Correction scheme is still experimental, take extreme care when using the numbers below!\n");
-	fprintf(fp, "q\tn\t\"KS Eigenvalue\"\t\"Self-Interaction Error\"\t\"Corrected Eigenvalue\"\t\"Corrected Eigenvalue (no-fillings)\"\n");
-	for(size_t q=0; q<e->eInfo.qnums.size(); q++)
-	{	for(int iDir=0; iDir<3; iDir++)
-			DC[iDir] = D(e->eVars.C[q], iDir);
-		for(int n=0; n<e->eInfo.nBands; n++)
-		{	double selfInteractionError = calcSelfInteractionError(q,n);
-			fprintf(fp, "%zu\t%i\t%f\t%f\t%f\t%f\n", q, n, e->eVars.Hsub_eigs[q][n], selfInteractionError, e->eVars.Hsub_eigs[q][n]-(e->eVars.F[q][n] ? 1. : 0.)*selfInteractionError,  e->eVars.Hsub_eigs[q][n]-selfInteractionError);
+	logPrintf("Dumping '%s'... ", filename);  logFlush();
+	for(int iActive=0; iActive<mpiUtil->nProcesses(); iActive++)
+	{	//Serialize accesses to file:
+		#ifdef MPI_ENABLED
+		MPI_Barrier(MPI_COMM_WORLD);
+		if(iActive != mpiUtil->iProcess()) continue;
+		#endif
+		
+		FILE* fp = fopen(filename, mpiUtil->isHead() ? "w" : "a"); //append from subsequent processes
+		if(!fp) die("Error opening %s for writing.\n", filename);
+		if(mpiUtil->isHead())
+		{	fprintf(fp, "WARNING: Self-Interaction Correction scheme is still experimental, take extreme care when using the numbers below!\n");
+			fprintf(fp, "q\tn\t\"KS Eigenvalue\"\t\"Self-Interaction Error\"\t\"Corrected Eigenvalue\"\t\"Corrected Eigenvalue (no-fillings)\"\n");
 		}
+		for(int q=e->eInfo.qStart; q<e->eInfo.qStop; q++)
+		{	for(int iDir=0; iDir<3; iDir++)
+				DC[iDir] = D(e->eVars.C[q], iDir);
+			for(int n=0; n<e->eInfo.nBands; n++)
+			{	double selfInteractionError = calcSelfInteractionError(q,n);
+				fprintf(fp, "%d\t%i\t%f\t%f\t%f\t%f\n",
+					q, n, e->eVars.Hsub_eigs[q][n], selfInteractionError,
+					e->eVars.Hsub_eigs[q][n]-(e->eVars.F[q][n] ? 1. : 0.)*selfInteractionError,
+					e->eVars.Hsub_eigs[q][n]-selfInteractionError);
+			}
+		}
+		fclose(fp);
 	}
-	
-	fclose(fp);	
 	logPrintf("done\n"); logFlush();
 }
