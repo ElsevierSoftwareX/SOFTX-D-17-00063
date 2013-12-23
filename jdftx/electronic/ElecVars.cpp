@@ -258,7 +258,8 @@ DataRptrCollection ElecVars::get_nXC() const
 
 //Electronic density functional and gradient
 void ElecVars::EdensityAndVscloc(Energies& ener, const ExCorr* alternateExCorr)
-{	const ElecInfo& eInfo = e->eInfo;
+{	static StopWatch watch("EdensityAndVscloc"); watch.start();
+	const ElecInfo& eInfo = e->eInfo;
 	const IonInfo& iInfo = e->iInfo;
 	
 	DataGptr nTilde = J(eInfo.spinType==SpinNone ? n[0] : n[0]+n[1]);
@@ -333,6 +334,7 @@ void ElecVars::EdensityAndVscloc(Energies& ener, const ExCorr* alternateExCorr)
 		if(VtauTilde) Vtau[s] += I(VtauTilde);
 		if(Vtau[s]) e->symm.symmetrize(Vtau[s]);
 	}
+	watch.stop();
 }
 
 
@@ -490,7 +492,7 @@ int ElecVars::nOccupiedBands(int q) const
 }
 
 DataRptrCollection ElecVars::KEdensity() const
-{	DataRptrCollection tau; nullToZero(tau, e->gInfo, n.size());
+{	DataRptrCollection tau(n.size());
 	//Compute KE density from valence electrons:
 	for(int q=e->eInfo.qStart; q<e->eInfo.qStop; q++)
 		for(int iDir=0; iDir<3; iDir++)
@@ -500,20 +502,17 @@ DataRptrCollection ElecVars::KEdensity() const
 	{	for(unsigned s=0; s<tau.size(); s++)
 			tau[s] += (1.0/tau.size()) * e->iInfo.tauCore; //add core KE density
 	}
-	for(unsigned s=0; s<n.size(); s++)
-	{	e->symm.symmetrize(tau[s]); //Symmetrize
-		tau[s]->allReduce(MPIUtil::ReduceSum);
+	for(DataRptr& tau_s: tau)
+	{	nullToZero(tau_s, e->gInfo);
+		e->symm.symmetrize(tau_s); //Symmetrize
+		tau_s->allReduce(MPIUtil::ReduceSum);
 	}
 	return tau;
 }
 
 DataRptrCollection ElecVars::calcDensity() const
-{	DataRptrCollection density; nullToZero(density, e->gInfo, n.size());
-	
-	// Initializes both spin channels to 0
-	for(unsigned s=0; s<density.size(); s++) initZero(density[s], e->gInfo); //Initialize to zero
-
-	// Runs over all states and accumulates density to the corresponding spin channel of the total density
+{	DataRptrCollection density(n.size());
+	//Runs over all states and accumulates density to the corresponding spin channel of the total density
 	e->iInfo.augmentDensityInit();
 	for(int q=e->eInfo.qStart; q<e->eInfo.qStop; q++)
 	{	density[e->eInfo.qnums[q].index()] += e->eInfo.qnums[q].weight * diagouterI(F[q], C[q], &e->gInfo);
@@ -521,9 +520,10 @@ DataRptrCollection ElecVars::calcDensity() const
 	}
 	e->iInfo.augmentDensityGrid(density);
 	
-	for(unsigned s=0; s<density.size(); s++)
-	{	e->symm.symmetrize(density[s]); //Symmetrize
-		density[s]->allReduce(MPIUtil::ReduceSum);
+	for(DataRptr& ns: density)
+	{	nullToZero(ns, e->gInfo);
+		e->symm.symmetrize(ns); //Symmetrize
+		ns->allReduce(MPIUtil::ReduceSum);
 	}
 	return density;
 }

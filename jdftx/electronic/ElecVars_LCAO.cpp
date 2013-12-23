@@ -69,7 +69,7 @@ struct LCAOminimizer : Minimizable<ElecGradient> //Uses only the B entries of El
 		e.eInfo.updateFillingsEnergies(F, ener);
 		
 		//Update density:
-		for(DataRptr& ns: eVars.n) initZero(ns, e.gInfo);
+		for(DataRptr& ns: eVars.n) ns=0;
 		e.iInfo.augmentDensityInit();
 		for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 		{	eVars.n[e.eInfo.qnums[q].index()] += e.eInfo.qnums[q].weight * diagouterI(F[q], eVars.C[q], &e.gInfo);
@@ -77,7 +77,8 @@ struct LCAOminimizer : Minimizable<ElecGradient> //Uses only the B entries of El
 		}
 		e.iInfo.augmentDensityGrid(eVars.n);
 		for(DataRptr& ns: eVars.n)
-		{	e.symm.symmetrize(ns);
+		{	nullToZero(ns, e.gInfo);
+			e.symm.symmetrize(ns);
 			ns->allReduce(MPIUtil::ReduceSum);
 		}
 		
@@ -226,7 +227,8 @@ int ElecVars::LCAO()
 			}
 			iInfo.augmentDensityGrid(n);
 			for(DataRptr& ns: n)
-			{	e->symm.symmetrize(ns);
+			{	nullToZero(ns, e->gInfo);
+				e->symm.symmetrize(ns);
 				ns->allReduce(MPIUtil::ReduceSum);
 			}
 		}
