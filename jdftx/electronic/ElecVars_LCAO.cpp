@@ -225,7 +225,10 @@ int ElecVars::LCAO()
 				iInfo.augmentDensitySpherical(eInfo.qnums[q], Fq, VdagC[q]); //pseudopotential contribution
 			}
 			iInfo.augmentDensityGrid(n);
-			for(DataRptr& ns: n) e->symm.symmetrize(ns);
+			for(DataRptr& ns: n)
+			{	e->symm.symmetrize(ns);
+				ns->allReduce(MPIUtil::ReduceSum);
+			}
 		}
 	}
 	
