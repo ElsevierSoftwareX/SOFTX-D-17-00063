@@ -138,6 +138,8 @@ public:
 	//! Returns the total single particle energy and gradient of all KS orbitals
 	double bandEnergyAndGrad(int q, Energies& ener, ColumnBundle* grad=0, ColumnBundle* Kgrad=0);
 	
+	void spinRestrict(); //!< enforce spin restriction on state (Y and B)
+	
 private:
 	const Everything* e;
 	

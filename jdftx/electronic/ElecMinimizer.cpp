@@ -82,39 +82,19 @@ ElecMinimizer::ElecMinimizer(Everything& e, bool precond)
 }
 
 void ElecMinimizer::step(const ElecGradient& dir, double alpha)
-{	assert(dir.Y.size() == eVars.Y.size());
-	for(unsigned s=0; s<dir.Y.size(); s++)
-	{	if(dir.Y[s]) axpy(alpha, dir.Y[s], eVars.Y[s]);
-		if(dir.B[s]) axpy(alpha, dir.B[s], eVars.B[s]);
+{	assert(dir.eInfo == &eInfo);
+	for(int q=eInfo.qStart; q<eInfo.qStop; q++)
+	{	if(dir.Y[q]) axpy(alpha, dir.Y[q], eVars.Y[q]);
+		if(dir.B[q]) axpy(alpha, dir.B[q], eVars.B[q]);
 	}
-	if(eInfo.spinRestricted)
-	{	if(mpiUtil->nProcesses()>1) die("Spin restriction not yet implemented in MPI mode.\n");
-		for(int q=0; q<eInfo.nStates/2; q++)
-		{	int qOther = q+eInfo.nStates/2;
-			eVars.Y[qOther] *= 0.;
-			eVars.Y[qOther] += eVars.Y[q]; //apply spin restriction (not using operator= because it also changes quantum number)
-		}
-	}
+	if(eInfo.spinRestricted) eVars.spinRestrict();
 }
 
 double ElecMinimizer::compute(ElecGradient* grad)
 {
 	if(grad) grad->init(e);
 	double ener = e.eVars.elecEnergyAndGrad(e.ener, grad, precond ? &Kgrad : 0);
-	if(grad && eInfo.spinRestricted)
-	{	if(mpiUtil->nProcesses()>1) die("Spin restriction not yet implemented in MPI mode.\n");
-		for(int q=0; q<eInfo.nStates/2; q++)
-		{	//Move second spin channel gradient contributions to the first one (due to spin-restriction constraint)
-			int qOther = q+eInfo.nStates/2;
-			grad->Y[q] += grad->Y[qOther]; grad->Y[qOther].free();
-			//Recompute the preconditioned gradient including the fillings weights:
-			if(precond)
-			{	ostringstream KEoss; KEoss << "KE-" << q;
-				double KErollover = 2.0 * (trace(eVars.F[q]) ? (e.ener.E[KEoss.str()]/eInfo.qnums[q].weight) / trace(eVars.F[q]) : 1.);
-				Kgrad.Y[q] = precond_inv_kinetic(grad->Y[q], KErollover); Kgrad.Y[qOther].free();
-			}
-		}
-	}
+	if(grad && eInfo.spinRestricted) spinRestrictGrad(*grad);
 	return ener;
 }
 
@@ -179,11 +159,42 @@ bool ElecMinimizer::report(int iter)
 void ElecMinimizer::constrain(ElecGradient& dir)
 {	if(e.cntrl.fixOccupied)
 	{	//Project out occupied directions:
-		for(unsigned q=0; q<dir.Y.size(); q++) if(dir.Y[q])
+		for(int q=eInfo.qStart; q<eInfo.qStop; q++)
 		{	int nOcc = eVars.nOccupiedBands(q);
 			if(nOcc)
 				callPref(eblas_zero)(dir.Y[q].colLength()*nOcc, dir.Y[q].dataPref());
 		}
+	}
+}
+
+void ElecMinimizer::spinRestrictGrad(ElecGradient& grad)
+{	if(!eInfo.spinRestricted) return;
+	for(int q=eInfo.qStart; q<std::min(eInfo.qStop, eInfo.nStates/2); q++)
+	{	int qOther = q + eInfo.nStates/2;
+		//Move second spin channel gradient contributions to the first one (due to spin-restriction constraint)
+		if(eInfo.isMine(qOther))
+			grad.Y[q] += grad.Y[qOther];
+		#ifdef MPI_ENABLED
+		else
+		{	ColumnBundle dY = grad.Y[q].similar();
+			MPI_Recv((double*)dY.data(), 2*dY.nData(), MPI_DOUBLE, eInfo.whose(qOther), q, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			grad.Y[q] += dY;
+		}
+		#endif
+		//Recompute the preconditioned gradient including the fillings weights:
+		if(precond)
+		{	double KErollover = 2.*e.ener.E["KE"] / eInfo.nElectrons;
+			Kgrad.Y[q] = precond_inv_kinetic(grad.Y[q], KErollover);
+		}
+	}
+	for(int qOther=std::max(eInfo.qStart,eInfo.nStates/2); qOther<eInfo.qStop; qOther++)
+	{	int q = qOther - eInfo.nStates/2;
+		#ifdef MPI_ENABLED
+		if(!eInfo.isMine(q))
+			MPI_Send((double*)grad.Y[qOther].data(), 2*grad.Y[qOther].nData(), MPI_DOUBLE, eInfo.whose(q), q, MPI_COMM_WORLD);
+		#endif
+		grad.Y[qOther].free();
+		if(precond) Kgrad.Y[qOther].free();
 	}
 }
 

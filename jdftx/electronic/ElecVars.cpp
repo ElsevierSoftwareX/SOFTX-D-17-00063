@@ -166,15 +166,7 @@ void ElecVars::setup(const Everything &everything)
 			}
 		}
 	}
-	
-	if(eInfo.spinRestricted)
-	{	if(mpiUtil->nProcesses()>1) die("Spin restriction not yet implemented in MPI mode.\n");
-		for(int q=0; q<eInfo.nStates/2; q++)
-		{	int qOther = q+eInfo.nStates/2;
-			Y[qOther] *= 0.;
-			Y[qOther] += Y[q]; //apply spin restriction (not using operator= because it also changes quantum number)
-		}
-	}
+	if(eInfo.spinRestricted) spinRestrict();
 	
 	//Orthogonalize initial wavefunctions:
 	for(int q=eInfo.qStart; q<eInfo.qStop; q++)
@@ -668,3 +660,25 @@ double ElecVars::bandEnergyAndGrad(int q, Energies& ener, ColumnBundle* grad, Co
 	overlapCondition = *extremes.second / *extremes.first;
 	return Eband;
 }
+
+void ElecVars::spinRestrict()
+{	const ElecInfo& eInfo = e->eInfo;
+	if(!eInfo.spinRestricted) return;
+	for(int q=eInfo.qStart; q<std::min(eInfo.qStop, eInfo.nStates/2); q++)
+	{	int qOther = q + eInfo.nStates/2;
+		if(eInfo.isMine(qOther))
+			memcpy(Y[qOther], Y[q]); //not using operator= because it also changes quantum number
+		#ifdef MPI_ENABLED
+		else
+			MPI_Send((double*)Y[q].data(), 2*Y[q].nData(), MPI_DOUBLE, eInfo.whose(qOther), q, MPI_COMM_WORLD);
+		#endif
+	}
+	#ifdef MPI_ENABLED
+	for(int qOther=std::max(eInfo.qStart,eInfo.nStates/2); qOther<eInfo.qStop; qOther++)
+	{	int q = qOther - eInfo.nStates/2;
+		if(!eInfo.isMine(q))
+			MPI_Recv((double*)Y[qOther].data(), 2*Y[qOther].nData(), MPI_DOUBLE, eInfo.whose(q), q, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	}
+	#endif
+}
+

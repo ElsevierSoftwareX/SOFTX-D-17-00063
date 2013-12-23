@@ -57,6 +57,8 @@ public:
 	ElecGradient precondition(const ElecGradient& grad);
 	bool report(int iter);
 	void constrain(ElecGradient&);
+private:
+	void spinRestrictGrad(ElecGradient& grad);
 };
 
 void elecMinimize(Everything& e); //!< minimize electonic system
