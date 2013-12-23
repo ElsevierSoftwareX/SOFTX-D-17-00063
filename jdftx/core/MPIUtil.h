@@ -43,6 +43,7 @@ public:
 
 	//Broadcast functions:
 	void bcast(int* data, size_t nData, int root=0) const;
+	void bcast(long* data, size_t nData, int root=0) const;
 	void bcast(bool* data, size_t nData, int root=0) const;
 	void bcast(double* data, size_t nData, int root=0) const;
 	void bcast(string& s, int root=0) const;
@@ -50,6 +51,7 @@ public:
 	//Reduce functions (safe mode gaurantees identical results irrespective of round-off (but could be slower)):
 	enum ReduceOp { ReduceMin, ReduceMax, ReduceSum, ReduceProd, ReduceLAnd, ReduceBAnd, ReduceLOr, ReduceBOr, ReduceLXor, ReduceBXor };
 	void allReduce(int* data, size_t nData, ReduceOp op) const;
+	void allReduce(long* data, size_t nData, ReduceOp op) const;
 	void allReduce(bool* data, size_t nData, ReduceOp op) const;
 	void allReduce(double* data, size_t nData, ReduceOp op, bool safeMode=false) const;
 

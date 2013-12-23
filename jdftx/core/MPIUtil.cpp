@@ -61,6 +61,13 @@ void MPIUtil::bcast(int* data, size_t nData, int root) const
 	#endif
 }
 
+void MPIUtil::bcast(long* data, size_t nData, int root) const
+{	
+	#ifdef MPI_ENABLED
+	if(nProcs>1) MPI_Bcast(data, nData, MPI_LONG, root, MPI_COMM_WORLD);
+	#endif
+}
+
 void MPIUtil::bcast(bool* data, size_t nData, int root) const
 {	
 	#ifdef MPI_ENABLED
@@ -123,6 +130,13 @@ void MPIUtil::allReduce(int* data, size_t nData, MPIUtil::ReduceOp op) const
 	#endif
 }
 
+void MPIUtil::allReduce(long* data, size_t nData, MPIUtil::ReduceOp op) const
+{
+	#ifdef MPI_ENABLED
+	if(nProcs>1) MPI_Allreduce(MPI_IN_PLACE, data, nData, MPI_LONG, mpiOp(op), MPI_COMM_WORLD);
+	#endif
+}
+
 void MPIUtil::allReduce(bool* data, size_t nData, MPIUtil::ReduceOp op) const
 {	
 	#ifdef MPI_ENABLED
@@ -169,7 +183,7 @@ void MPIUtil::fopenRead(File& fp, const char* fname, size_t fsizeExpected, const
 void MPIUtil::fopenWrite(File& fp, const char* fname) const
 {
 	#ifdef MPI_ENABLED
-	if(MPI_File_open(MPI_COMM_WORLD, (char*)fname, MPI_MODE_WRONLY, MPI_INFO_NULL, &fp) != MPI_SUCCESS)
+	if(MPI_File_open(MPI_COMM_WORLD, (char*)fname, MPI_MODE_WRONLY|MPI_MODE_CREATE, MPI_INFO_NULL, &fp) != MPI_SUCCESS)
 	#else
 	fp = ::fopen(fname, "wb");
 	if(!fp)

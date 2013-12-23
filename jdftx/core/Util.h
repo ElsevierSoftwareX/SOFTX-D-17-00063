@@ -116,7 +116,7 @@ void logResume(); //!< re-enable logging after a logSuspend() call
 		if(mpiUtil->isHead() && globalLog != stdout) \
 			fprintf(stderr, __VA_ARGS__); \
 		finalizeSystem(false); \
-		mpiUtil->exit(1); \
+		exit(1); \
 	}
 
 

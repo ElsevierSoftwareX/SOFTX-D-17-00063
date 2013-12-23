@@ -33,8 +33,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 #include <limits.h>
 
 ElecVars::ElecVars()
-: readWfnsRealspace(false), nBandsOld(0), EcutOld(0), kdepOld(BasisKpointDep), NxOld(0), NyOld(0), NzOld(0),
-isRandom(true), HauxInitialized(false), initLCAO(true), lcaoIter(-1), lcaoTol(1e-6)
+: isRandom(true), HauxInitialized(false), initLCAO(true), lcaoIter(-1), lcaoTol(1e-6)
 {
 }
 
@@ -137,14 +136,10 @@ void ElecVars::setup(const Everything &everything)
 	int nBandsInited = 0;
 	if(wfnsFilename.length())
 	{	logPrintf("reading from '%s'\n", wfnsFilename.c_str()); logFlush();
-		if(nBandsOld <= 0) nBandsOld = eInfo.nBands;
-		if(EcutOld <= 0.0) EcutOld = e->cntrl.Ecut;
-		if(NxOld <= 0.0) NxOld = gInfo.S[0];
-		if(NyOld <= 0.0) NyOld = gInfo.S[1];
-		if(NzOld <= 0.0) NzOld = gInfo.S[2];
-		read(Y, wfnsFilename.c_str(), *e);
-		nBandsInited = nBandsOld;
-		isRandom = (nBandsOld<eInfo.nBands);
+		if(readConversion) readConversion->Ecut = e->cntrl.Ecut;
+		read(Y, wfnsFilename.c_str(), eInfo, readConversion.get());
+		nBandsInited = (readConversion && readConversion->nBandsOld) ? readConversion->nBandsOld : eInfo.nBands;
+		isRandom = (nBandsInited<eInfo.nBands);
 	}
 	else if(initLCAO)
 	{	nBandsInited = LCAO();

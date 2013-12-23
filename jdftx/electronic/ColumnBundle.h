@@ -22,6 +22,7 @@ along with JDFTx.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <electronic/common.h>
 #include <electronic/ManagedMemory.h>
+#include <electronic/Control.h>
 #include <electronic/matrix.h>
 #include <core/Data.h>
 #include <core/scaled.h>
@@ -63,12 +64,6 @@ public:
 	void setColumn(int i, const complexDataGptr&); //!< Redeuce a full G-space vector and store it as the i'th column
 	void accumColumn(int i, const complexDataGptr&); //!< Redeuce a full G-space vector and accumulate onto the i'th column
 	
-	// Input/output:
-	struct ColumnBundleReader* reader; //!< Opaque pointer to conversion and read utility
-	size_t createReader(const Everything&); //!< create read utility and return expected read size (MUST be called before read)
-	void read(FILE *stream);
-	void destroyReader(); //!< free reader
-	
 	void randomize(int colStart, int colStop); //!< randomize a selected range of columns
 };
 
@@ -77,7 +72,16 @@ void init(std::vector<ColumnBundle>&, int nbundles, int ncols=0, const Basis* ba
 
 void randomize(std::vector<ColumnBundle>&, const ElecInfo& eInfo);
 void write(const std::vector<ColumnBundle>&, const char *fname, const ElecInfo& eInfo);
-void read(std::vector<ColumnBundle>&, const char *fname, const Everything&);
+
+struct ColumnBundleReadConversion
+{	bool realSpace; //!< whether to read realspace wavefunctions
+	int nBandsOld; //!< nBands for the input wavefunction
+	double Ecut, EcutOld; //!< Ecut for the current calculation and input wavefunction in fourier space
+	vector3<int> S_old; //!< fftbox size for the input wavefunction in double space
+	
+	ColumnBundleReadConversion();
+};
+void read(std::vector<ColumnBundle>&, const char *fname, const ElecInfo& eInfo, const ColumnBundleReadConversion* conversion=0);
 
 // Used in the CG template Minimize.h
 ColumnBundle clone(const ColumnBundle&);  //! Copies the input

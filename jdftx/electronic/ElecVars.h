@@ -87,10 +87,7 @@ public:
 
 	//Wavefunction initialization:
 	string wfnsFilename; //!< file to read wavefunctions from
-	bool readWfnsRealspace; //!< whether to read realspace wavefunctions
-	int nBandsOld; //!< nBands for the input wavefunction
-	double EcutOld; BasisKdep kdepOld; //!< Ecut and basis-dependent flag  for the input wavefunction in fourier space
-	int NxOld, NyOld, NzOld; //!< fftbox size for the input wavefunction in double space
+	std::shared_ptr<struct ColumnBundleReadConversion> readConversion; //!< ColumnBundle conversion
 	bool isRandom; //!< indicates whether the electronic state is random (not yet minimized)
 	
 	//Auxiliary hamiltonian initialization

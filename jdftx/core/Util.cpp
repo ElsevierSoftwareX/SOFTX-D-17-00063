@@ -207,7 +207,7 @@ void finalizeSystem(bool successful)
 	if(successful) logPrintf("Done!\n");
 	else
 	{	logPrintf("Failed.\n");
-		if(globalLog != stdout)
+		if(mpiUtil->isHead() && globalLog != stdout)
 			fprintf(stderr, "Failed.\n");
 	}
 	
