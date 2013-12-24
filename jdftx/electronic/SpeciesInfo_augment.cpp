@@ -136,7 +136,8 @@ void SpeciesInfo::augmentDensityGridGrad(const DataRptrCollection& E_n, std::vec
 	double* E_nAugRadialData = (double*)E_nAugRadial.dataPref();
 	matrix nAugRadial; const double* nAugRadialData=0;
 	if(forces)
-	{	nAugRadial = QradialMat * nAug;
+	{	matrix nAugTot = nAug; nAugTot.allReduce(MPIUtil::ReduceSum);
+		nAugRadial = QradialMat * nAugTot;
 		nAugRadialData = (const double*)nAugRadial.dataPref();
 	}
 	DataGptrVec E_atpos; if(forces) nullToZero(E_atpos, gInfo);
