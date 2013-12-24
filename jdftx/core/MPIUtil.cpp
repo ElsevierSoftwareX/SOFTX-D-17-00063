@@ -54,114 +54,38 @@ void MPIUtil::exit(int errCode) const
 
 //----------------------- Broadcast routines -------------------------------
 
-void MPIUtil::bcast(int* data, size_t nData, int root) const
-{	
-	#ifdef MPI_ENABLED
-	if(nProcs>1) MPI_Bcast(data, nData, MPI_INT, root, MPI_COMM_WORLD);
-	#endif
-}
-
-void MPIUtil::bcast(long* data, size_t nData, int root) const
-{	
-	#ifdef MPI_ENABLED
-	if(nProcs>1) MPI_Bcast(data, nData, MPI_LONG, root, MPI_COMM_WORLD);
-	#endif
-}
-
 void MPIUtil::bcast(bool* data, size_t nData, int root) const
-{	
-	#ifdef MPI_ENABLED
-	if(nProcs>1)
+{	if(nProcs>1)
 	{	std::vector<int> intCopy(nData); //Copy data into an integer version (bool is not natively supported by MPI)
 		std::copy(data, data+nData, intCopy.begin());
-		MPI_Bcast(&intCopy[0], nData, MPI_INT, root, MPI_COMM_WORLD);
+		bcast(&intCopy[0], nData, root);
 		std::copy(intCopy.begin(), intCopy.end(), data);
 	}
-	#endif
-}
-
-void MPIUtil::bcast(double* data, size_t nData, int root) const
-{
-	#ifdef MPI_ENABLED
-	if(nProcs>1) MPI_Bcast(data, nData, MPI_DOUBLE, root, MPI_COMM_WORLD);
-	#endif
 }
 
 void MPIUtil::bcast(string& s, int root) const
 {	if(nProcs>1)
-	{
-		#ifdef MPI_ENABLED
-		//Synchronize length of string:
+	{	//Synchronize length of string:
 		int len = s.length();
-		bcast(&len, 1, root);
+		bcast(len, root);
 		if(iProc!=root) s.resize(len);
 		//Bcast content:
-		MPI_Bcast(&s[0], len, MPI_CHAR, root, MPI_COMM_WORLD);
-		#endif
+		bcast(&s[0], len, root);
 	}
 }
 
 
 //----------------------- Reduction routines -------------------------------
 
-#ifdef MPI_ENABLED
-static MPI_Op mpiOp(MPIUtil::ReduceOp op)
-{	switch(op)
-	{	case MPIUtil::ReduceMax: return MPI_MAX;
-		case MPIUtil::ReduceMin: return MPI_MIN;
-		case MPIUtil::ReduceSum: return MPI_SUM;
-		case MPIUtil::ReduceProd: return MPI_PROD;
-		case MPIUtil::ReduceLAnd: return MPI_LAND;
-		case MPIUtil::ReduceBAnd: return MPI_BAND;
-		case MPIUtil::ReduceLOr: return MPI_LOR;
-		case MPIUtil::ReduceBOr: return MPI_BOR;
-		case MPIUtil::ReduceLXor: return MPI_LXOR;
-		case MPIUtil::ReduceBXor: return MPI_BXOR;
-		default: assert(!"Unknown reduction operation");
-	}
-	return 0;
-}
-#endif
-
-void MPIUtil::allReduce(int* data, size_t nData, MPIUtil::ReduceOp op) const
-{
-	#ifdef MPI_ENABLED
-	if(nProcs>1) MPI_Allreduce(MPI_IN_PLACE, data, nData, MPI_INT, mpiOp(op), MPI_COMM_WORLD);
-	#endif
-}
-
-void MPIUtil::allReduce(long* data, size_t nData, MPIUtil::ReduceOp op) const
-{
-	#ifdef MPI_ENABLED
-	if(nProcs>1) MPI_Allreduce(MPI_IN_PLACE, data, nData, MPI_LONG, mpiOp(op), MPI_COMM_WORLD);
-	#endif
-}
-
-void MPIUtil::allReduce(bool* data, size_t nData, MPIUtil::ReduceOp op) const
-{	
-	#ifdef MPI_ENABLED
-	if(nProcs>1)
+void MPIUtil::allReduce(bool* data, size_t nData, MPIUtil::ReduceOp op, bool safeMode) const
+{	if(nProcs>1)
 	{	std::vector<int> intCopy(nData); //Copy data into an integer version (bool is not natively supported by MPI)
 		std::copy(data, data+nData, intCopy.begin());
-		MPI_Allreduce(MPI_IN_PLACE, &intCopy[0], nData, MPI_INT, mpiOp(op), MPI_COMM_WORLD);
+		allReduce(&intCopy[0], nData, op);
 		std::copy(intCopy.begin(), intCopy.end(), data);
 	}
-	#endif
 }
 
-void MPIUtil::allReduce(double* data, size_t nData, MPIUtil::ReduceOp op, bool safeMode) const
-{
-	#ifdef MPI_ENABLED
-	if(nProcs>1)
-	{	if(safeMode) //Reduce to root node and then broadcast result (to ensure identical values)
-		{	MPI_Reduce(isHead()?MPI_IN_PLACE:data, data, nData, MPI_DOUBLE, mpiOp(op), 0, MPI_COMM_WORLD);
-			bcast(data, nData, 0);
-		}
-		else //standard Allreduce
-			MPI_Allreduce(MPI_IN_PLACE, data, nData, MPI_DOUBLE, mpiOp(op), MPI_COMM_WORLD);
-	}
-	#endif
-}
 
 //----------------------- File I/O routines -------------------------------
 

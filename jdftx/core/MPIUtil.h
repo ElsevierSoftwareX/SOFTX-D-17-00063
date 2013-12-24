@@ -42,18 +42,16 @@ public:
 	void exit(int errCode) const; //!< global exit (kill other MPI processes as well)
 
 	//Broadcast functions:
-	void bcast(int* data, size_t nData, int root=0) const;
-	void bcast(long* data, size_t nData, int root=0) const;
-	void bcast(bool* data, size_t nData, int root=0) const;
-	void bcast(double* data, size_t nData, int root=0) const;
+	template<typename T> void bcast(T* data, size_t nData, int root=0) const; //!< generic array broadcast
+	template<typename T> void bcast(T& data, int root=0) const; //!< generic scalar broadcast
+	void bcast(bool* data, size_t nData, int root=0) const; //!< specialization for bool which is not natively supported by MPI
 	void bcast(string& s, int root=0) const;
 
 	//Reduce functions (safe mode gaurantees identical results irrespective of round-off (but could be slower)):
 	enum ReduceOp { ReduceMin, ReduceMax, ReduceSum, ReduceProd, ReduceLAnd, ReduceBAnd, ReduceLOr, ReduceBOr, ReduceLXor, ReduceBXor };
-	void allReduce(int* data, size_t nData, ReduceOp op) const;
-	void allReduce(long* data, size_t nData, ReduceOp op) const;
-	void allReduce(bool* data, size_t nData, ReduceOp op) const;
-	void allReduce(double* data, size_t nData, ReduceOp op, bool safeMode=false) const;
+	template<typename T> void allReduce(T* data, size_t nData, ReduceOp op, bool safeMode=false) const; //!< generic array reduction
+	template<typename T> void allReduce(T& data, ReduceOp op, bool safeMode=false) const; //!< generic scalar reduction
+	void allReduce(bool* data, size_t nData, ReduceOp op, bool safeMode=false) const;  //!< specialization for bool which is not natively supported by MPI
 
 	//File access (tiny subset of MPI-IO, using byte offsets alone, and made to closely resemble stdio):
 	#ifdef MPI_ENABLED
@@ -69,5 +67,69 @@ public:
 	void fwrite(const void *ptr, size_t size, size_t nmemb, File fp) const;
 };
 
+//-------------------------- Template implementations ------------------------------------
+//!@cond
+namespace MPIUtilPrivate
+{
+#ifdef MPI_ENABLED
+	template<typename T> struct DataType;
+	#define DECLARE_DataType(cName, mpiName) template<> struct DataType<cName> { static MPI_Datatype get() { return MPI_##mpiName; } };
+	DECLARE_DataType(char, CHAR)
+	DECLARE_DataType(unsigned char, UNSIGNED_CHAR)
+	DECLARE_DataType(short, SHORT)
+	DECLARE_DataType(int, INT)
+	DECLARE_DataType(long, LONG)
+	DECLARE_DataType(unsigned long, UNSIGNED_LONG)
+	DECLARE_DataType(float, FLOAT)
+	DECLARE_DataType(double, DOUBLE)
+	#undef DECLARE_DataType
+	
+	static MPI_Op mpiOp(MPIUtil::ReduceOp op)
+	{	switch(op)
+		{	case MPIUtil::ReduceMax: return MPI_MAX;
+			case MPIUtil::ReduceMin: return MPI_MIN;
+			case MPIUtil::ReduceSum: return MPI_SUM;
+			case MPIUtil::ReduceProd: return MPI_PROD;
+			case MPIUtil::ReduceLAnd: return MPI_LAND;
+			case MPIUtil::ReduceBAnd: return MPI_BAND;
+			case MPIUtil::ReduceLOr: return MPI_LOR;
+			case MPIUtil::ReduceBOr: return MPI_BOR;
+			case MPIUtil::ReduceLXor: return MPI_LXOR;
+			case MPIUtil::ReduceBXor: return MPI_BXOR;
+		}
+		return 0;
+	}
+#endif
+}
 
+template<typename T> void MPIUtil::bcast(T* data, size_t nData, int root) const
+{	using namespace MPIUtilPrivate;
+	#ifdef MPI_ENABLED
+	if(nProcs>1) MPI_Bcast(data, nData, DataType<T>::get(), root, MPI_COMM_WORLD);
+	#endif
+}
+
+template<typename T> void MPIUtil::bcast(T& data, int root) const
+{	bcast(&data, 1, root);
+}
+
+template<typename T> void MPIUtil::allReduce(T* data, size_t nData, MPIUtil::ReduceOp op, bool safeMode) const
+{	using namespace MPIUtilPrivate;
+	#ifdef MPI_ENABLED
+	if(nProcs>1)
+	{	if(safeMode) //Reduce to root node and then broadcast result (to ensure identical values)
+		{	MPI_Reduce(isHead()?MPI_IN_PLACE:data, data, nData, DataType<T>::get(), mpiOp(op), 0, MPI_COMM_WORLD);
+			bcast(data, nData, 0);
+		}
+		else //standard Allreduce
+			MPI_Allreduce(MPI_IN_PLACE, data, nData, DataType<T>::get(), mpiOp(op), MPI_COMM_WORLD);
+	}
+	#endif
+}
+
+template<typename T> void MPIUtil::allReduce(T& data, MPIUtil::ReduceOp op, bool safeMode) const
+{	allReduce(&data, 1, op, safeMode);
+}
+
+//!@endcond
 #endif // JDFTX_CORE_MPIUTIL_H

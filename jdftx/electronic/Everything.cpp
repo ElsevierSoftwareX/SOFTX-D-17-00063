@@ -139,7 +139,7 @@ void Everything::setup()
 		if(eInfo.subspaceRotation)
 			elecMinParams.nDim += eInfo.nBands * eInfo.nBands;
 	}
-	mpiUtil->allReduce(&elecMinParams.nDim, 1, MPIUtil::ReduceSum);
+	mpiUtil->allReduce(elecMinParams.nDim, MPIUtil::ReduceSum);
 	elecMinParams.fpLog = globalLog;
 	elecMinParams.linePrefix = "ElecMinimize: ";
 	elecMinParams.energyLabel = relevantFreeEnergyName(*this);

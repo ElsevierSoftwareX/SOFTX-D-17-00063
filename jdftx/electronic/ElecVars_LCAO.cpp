@@ -111,7 +111,7 @@ struct LCAOminimizer : Minimizable<ElecGradient> //Uses only the B entries of El
 				dmuDen += qnum.weight * trace(fprime);
 			}
 		}
-		mpiUtil->allReduce(&ener.E["NI"], 1, MPIUtil::ReduceSum);
+		mpiUtil->allReduce(ener.E["NI"], MPIUtil::ReduceSum);
 		
 		//Final gradient propagation to auxiliary Hamiltonian:
 		if(grad) 

@@ -57,7 +57,7 @@ double dot(const ElecGradient& x, const ElecGradient& y)
 	{	if(x.Y[q] && y.Y[q]) result += dotc(x.Y[q], y.Y[q])*2.0;
 		if(x.B[q] && y.B[q]) result += dotc(x.B[q], y.B[q]);
 	}
-	mpiUtil->allReduce(&result.real(), 1, MPIUtil::ReduceSum, true);
+	mpiUtil->allReduce(result.real(), MPIUtil::ReduceSum, true);
 	return result.real();
 }
 

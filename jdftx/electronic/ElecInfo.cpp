@@ -163,7 +163,7 @@ void ElecInfo::setup(const Everything &everything, std::vector<diagMatrix>& F, E
 		nElectrons=0.;
 		for(int q=qStart; q<qStop; q++)
 			nElectrons += qnums[q].weight * trace(F[q]);
-		mpiUtil->allReduce(&nElectrons, 1, MPIUtil::ReduceSum, true);
+		mpiUtil->allReduce(nElectrons, MPIUtil::ReduceSum, true);
 	}
 	
 	//subspace_rotation is false by default
@@ -189,7 +189,7 @@ void ElecInfo::setup(const Everything &everything, std::vector<diagMatrix>& F, E
 			bool scalarFillings = true;
 			for(int q=qStart; q<qStop; q++)
 				scalarFillings &= F[q].isScalar();
-			mpiUtil->allReduce(&scalarFillings, 1, MPIUtil::ReduceLAnd);
+			mpiUtil->allReduce(scalarFillings, MPIUtil::ReduceLAnd);
 			if(!scalarFillings)
 			{	subspaceRotation = true;
 				logPrintf("Turning on subspace rotations due to non-diagonal fillings.\n");
@@ -295,7 +295,7 @@ void ElecInfo::updateFillingsEnergies(const std::vector<diagMatrix>& F, Energies
 		}
 		ener.TS -= kT * qnums[q].weight * Sq;
 	}
-	mpiUtil->allReduce(&ener.TS, 1, MPIUtil::ReduceSum);
+	mpiUtil->allReduce(ener.TS, MPIUtil::ReduceSum);
 
 	//Grand canonical multiplier if fixed mu:
 	if(!std::isnan(mu)) ener.muN = mu * nElectrons;
@@ -335,7 +335,7 @@ double ElecInfo::nElectronsFermi(double mu, const std::vector<diagMatrix>& eps) 
 	for(int q=qStart; q<qStop; q++)
 		for(double epsCur: eps[q])
 			N += qnums[q].weight*fermi(mu, epsCur);
-	mpiUtil->allReduce(&N, 1, MPIUtil::ReduceSum, true);
+	mpiUtil->allReduce(N, MPIUtil::ReduceSum, true);
 	return N;
 }
 

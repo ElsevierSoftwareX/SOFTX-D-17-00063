@@ -179,7 +179,7 @@ void write(const std::vector<ColumnBundle>& Y, const char* fname, const ElecInfo
 	//Sync nBytes across processes:
 	if(mpiUtil->nProcesses()>1)
 		for(int iSrc=0; iSrc<mpiUtil->nProcesses(); iSrc++)
-			mpiUtil->bcast(&nBytes[iSrc], 1, iSrc);
+			mpiUtil->bcast(nBytes[iSrc], iSrc);
 	//Compute offset of current process, and expected file length:
 	long offset=0, fsize=0;
 	for(int iSrc=0; iSrc<mpiUtil->nProcesses(); iSrc++)
@@ -254,7 +254,7 @@ void read(std::vector<ColumnBundle>& Y, const char *fname, const ElecInfo& eInfo
 		//Sync nBytes:
 		if(mpiUtil->nProcesses()>1)
 			for(int iSrc=0; iSrc<mpiUtil->nProcesses(); iSrc++)
-				mpiUtil->bcast(&nBytes[iSrc], 1, iSrc);
+				mpiUtil->bcast(nBytes[iSrc], iSrc);
 		//Compute offset of current process, and expected file length:
 		long offset=0, fsize=0;
 		for(int iSrc=0; iSrc<mpiUtil->nProcesses(); iSrc++)

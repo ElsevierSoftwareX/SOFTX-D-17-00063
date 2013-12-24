@@ -178,7 +178,7 @@ void IonInfo::update(Energies& ener)
 	double nbasisAvg = 0.0;
 	for(int q=e->eInfo.qStart; q<e->eInfo.qStop; q++)
 		nbasisAvg += 0.5*e->eInfo.qnums[q].weight * e->basis[q].nbasis;
-	mpiUtil->allReduce(&nbasisAvg, 1, MPIUtil::ReduceSum);
+	mpiUtil->allReduce(nbasisAvg, MPIUtil::ReduceSum);
 	
 	ener.E["Epulay"] = dEtot_dnG * 
 		( sqrt(2.0)*pow(e->cntrl.Ecut,1.5)/(3.0*M_PI*M_PI) //ideal nG

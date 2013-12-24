@@ -266,7 +266,7 @@ void parse(const char* filename, Everything& everything, bool printDefaults)
 	if(mpiUtil->nProcesses()>1)
 	{	//Synchronize lengths:
 		int nInputs = input.size();
-		mpiUtil->bcast(&nInputs, 1);
+		mpiUtil->bcast(nInputs);
 		if(!mpiUtil->isHead()) input.resize(nInputs);
 		//Serialize to string and synchronize content:
 		string inputStr;

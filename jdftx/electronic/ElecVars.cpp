@@ -202,7 +202,7 @@ void ElecVars::setup(const Everything &everything)
 		nElectrons = 0.;
 		for(int q=eInfo.qStart; q<eInfo.qStop; q++)
 			nElectrons += eInfo.qnums[q].weight * trace(F[q]);
-		mpiUtil->allReduce(&nElectrons, 1, MPIUtil::ReduceSum, true);
+		mpiUtil->allReduce(nElectrons, MPIUtil::ReduceSum, true);
 	}
 	
 	// Read in electron (spin) density if needed
@@ -362,8 +362,8 @@ double ElecVars::elecEnergyAndGrad(Energies& ener, ElecGradient* grad, ElecGradi
 		UeigMin = std::min(UeigMin, *(extremes.first));
 		UeigMax = std::max(UeigMax, *(extremes.second));
 	}
-	mpiUtil->allReduce(&UeigMin, 1, MPIUtil::ReduceMin, true);
-	mpiUtil->allReduce(&UeigMax, 1, MPIUtil::ReduceMax, true);
+	mpiUtil->allReduce(UeigMin, MPIUtil::ReduceMin, true);
+	mpiUtil->allReduce(UeigMax, MPIUtil::ReduceMax, true);
 	overlapCondition = UeigMax / UeigMin;
 	
 	//Compute fillings if required:
@@ -418,8 +418,8 @@ double ElecVars::elecEnergyAndGrad(Energies& ener, ElecGradient* grad, ElecGradi
 	{	diagMatrix Fq = e->cntrl.fixed_n ? eye(e->eInfo.nBands) : F[q]; //override fillings for band structure
 		applyHamiltonian(q, Fq, HC[q], HVdagC[q], ener, need_Hsub);
 	}
-	mpiUtil->allReduce(&ener.E["KE"], 1, MPIUtil::ReduceSum);
-	mpiUtil->allReduce(&ener.E["Enl"], 1, MPIUtil::ReduceSum);
+	mpiUtil->allReduce(ener.E["KE"], MPIUtil::ReduceSum);
+	mpiUtil->allReduce(ener.E["Enl"], MPIUtil::ReduceSum);
 	
 	if(grad and eInfo.fillingsUpdate==ElecInfo::FermiFillingsAux and std::isnan(eInfo.mu)) //contribution due to Nconstraint via the mu gradient 
 	{	double dmuNumDen[2] = { 0., 0. }; //numerator and denominator of dmuContrib
@@ -460,7 +460,7 @@ double ElecVars::elecEnergyAndGrad(Energies& ener, ElecGradient* grad, ElecGradi
 		ener.Eband = 0;
 		for(int q=eInfo.qStart; q<eInfo.qStop; q++)
 			ener.Eband += eInfo.qnums[q].weight * trace(Hsub[q]).real();
-		mpiUtil->allReduce(&ener.Eband, 1, MPIUtil::ReduceSum);
+		mpiUtil->allReduce(ener.Eband, MPIUtil::ReduceSum);
 	}
 	return relevantFreeEnergy(*e);
 }
