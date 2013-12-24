@@ -60,7 +60,7 @@ double SpeciesInfo::computeU(const std::vector<diagMatrix>& F, const std::vector
 		{	int mCount = 2*Uparams.l+1; //number of m's at given l
 			double prefac = 0.5 * Uparams.UminusJ / wSpinless;
 			//Compute the density matrix:
-			matrix rho = zeroes(atpos.size(), atpos.size());
+			matrix rho = zeroes(atpos.size()*mCount, atpos.size()*mCount);
 			for(int q=eInfo.qStart; q<eInfo.qStop; q++) if(eInfo.qnums[q].index()==s)
 			{	ColumnBundle Opsi(C[q].similar(atpos.size() * mCount));
 				setOpsi(Opsi, Uparams.n, Uparams.l);

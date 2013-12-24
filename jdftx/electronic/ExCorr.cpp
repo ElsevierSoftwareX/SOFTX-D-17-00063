@@ -526,8 +526,8 @@ double ExCorr::operator()(const DataRptrCollection& n, DataRptrCollection* Vxc, 
 			for(int s2=s1; s2<nCount; s2++)
 			{	for(int i=iDirStart; i<iDirStop; i++)
 					sigma[s1+s2] += Dn[s1][i] * Dn[s2][i];
-				nullToZero(sigma[s1+s2], gInfo);
 				watchComm.start();
+				nullToZero(sigma[s1+s2], gInfo);
 				sigma[s1+s2]->allReduce(MPIUtil::ReduceSum);
 				watchComm.stop();
 			}
@@ -661,6 +661,7 @@ double ExCorr::operator()(const DataRptrCollection& n, DataRptrCollection* Vxc, 
 		}
 		for(int s=0; s<nCount; s++)
 		{	watchComm.start();
+			nullToZero(E_nTilde[s], gInfo);
 			E_nTilde[s]->allReduce(MPIUtil::ReduceSum);
 			watchComm.stop();
 			E_n[s] += Jdag(E_nTilde[s],true);
