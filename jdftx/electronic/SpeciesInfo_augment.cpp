@@ -151,6 +151,7 @@ void SpeciesInfo::augmentDensityGridGrad(const DataRptrCollection& E_n, std::vec
 		}
 	}
 	E_nAug = dagger(QradialMat) * E_nAugRadial;  //propagate from spline coeffs to radial functions
+	E_nAug.allReduce(MPIUtil::ReduceSum);
 	watch.stop();
 }
 

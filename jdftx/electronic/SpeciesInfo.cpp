@@ -275,6 +275,6 @@ void SpeciesInfo::updateLatticeDependent()
 		if(nagIndex) delete[] nagIndex; nagIndex=0;
 		if(nagIndexPtr) delete[] nagIndexPtr; nagIndexPtr=0;
 		#endif
-		callPref(setNagIndex)(gInfo.S, gInfo.G, nCoeff, 1./dGloc, nagIndex, nagIndexPtr);
+		callPref(setNagIndex)(gInfo.S, gInfo.G, gInfo.iGstart, gInfo.iGstop, nCoeff, 1./dGloc, nagIndex, nagIndexPtr);
 	}
 }
