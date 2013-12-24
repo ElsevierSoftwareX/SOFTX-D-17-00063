@@ -232,24 +232,22 @@ void Dump::dumpQMC()
 				{	Cq = &eVars.C[q];
 					Hsub_eigsq = &eVars.Hsub_eigs[q];
 				}
-				#ifdef MPI_ENABLED
 				else
-				{	CqTemp.init(eInfo.nBands, e->basis[q].nbasis, &e->basis[q], &eInfo.qnums[q]); Cq = &CqTemp;
-					Hsub_eigsqTemp.resize(eInfo.nBands); Hsub_eigsq = &Hsub_eigsqTemp;
-					MPI_Recv((double*)CqTemp.data(), CqTemp.nData()*2, MPI_DOUBLE, eInfo.whose(q), q, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-					MPI_Recv(Hsub_eigsqTemp.data(), eInfo.nBands, MPI_DOUBLE, eInfo.whose(q), q, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+				{	Cq = &CqTemp;
+					CqTemp.init(eInfo.nBands, e->basis[q].nbasis, &e->basis[q], &eInfo.qnums[q]);
+					CqTemp.recv(eInfo.whose(q));
+					Hsub_eigsq = &Hsub_eigsqTemp;
+					Hsub_eigsqTemp.resize(eInfo.nBands);
+					Hsub_eigsqTemp.recv(eInfo.whose(q));
 				}
-				#endif
 			}
-			#ifdef MPI_ENABLED
 			else
 			{	if(eInfo.isMine(q))
-				{	MPI_Send((double*)eVars.C[q].data(), eVars.C[q].nData()*2, MPI_DOUBLE, 0, q, MPI_COMM_WORLD);
-					MPI_Send((double*)eVars.Hsub_eigs[q].data(), eInfo.nBands, MPI_DOUBLE, 0, q, MPI_COMM_WORLD);
+				{	eVars.C[q].send(0);
+					eVars.Hsub_eigs[q].send(0);
 				}
 				continue; //only head performs computation below
 			}
-			#endif
 			
 			//Loop over bands
 			for (int b=0; b < eInfo.nBands; b++)

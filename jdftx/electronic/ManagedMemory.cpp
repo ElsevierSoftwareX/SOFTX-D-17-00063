@@ -139,6 +139,14 @@ void ManagedMemory::toGpu()
 
 #endif
 
+void ManagedMemory::send(int dest, int tag) const
+{	assert(mpiUtil->nProcesses()>1);
+	mpiUtil->send((const double*)data(), 2*nData(), dest, tag);
+}
+void ManagedMemory::recv(int src, int tag)
+{	assert(mpiUtil->nProcesses()>1);
+	mpiUtil->recv((double*)data(), 2*nData(), src, tag);
+}
 void ManagedMemory::bcast(int root)
 {	if(mpiUtil->nProcesses()>1)
 		mpiUtil->bcast((double*)data(), 2*nData(), root);

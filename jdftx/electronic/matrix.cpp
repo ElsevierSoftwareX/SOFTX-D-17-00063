@@ -76,6 +76,22 @@ void diagMatrix::print(FILE* fp, const char* fmt) const
 	fprintf(fp,"\n");
 }
 
+void diagMatrix::send(int dest, int tag) const
+{	assert(mpiUtil->nProcesses()>1);
+	mpiUtil->send(data(), size(), dest, tag);
+}
+void diagMatrix::recv(int src, int tag)
+{	assert(mpiUtil->nProcesses()>1);
+	mpiUtil->recv(data(), size(), src, tag);
+}
+void diagMatrix::bcast(int root)
+{	if(mpiUtil->nProcesses()>1)
+		mpiUtil->bcast(data(), size(), root);
+}
+void diagMatrix::allReduce(MPIUtil::ReduceOp op, bool safeMode)
+{	if(mpiUtil->nProcesses()>1)
+		mpiUtil->allReduce(data(), size(), op, safeMode);
+}
 
 //----------------------- class matrix ---------------------------
 

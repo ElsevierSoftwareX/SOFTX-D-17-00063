@@ -107,31 +107,36 @@ void SelfInteractionCorrection::dump(const char* filename)
 	{	logPrintf("WARNING: Perdew-Zunger self-interaction correction can't be used with exact exchange!\n");
 		return;
 	}
-	
 	logPrintf("Dumping '%s'... ", filename);  logFlush();
-	for(int iActive=0; iActive<mpiUtil->nProcesses(); iActive++)
-	{	//Serialize accesses to file:
-		#ifdef MPI_ENABLED
-		MPI_Barrier(MPI_COMM_WORLD);
-		if(iActive != mpiUtil->iProcess()) continue;
-		#endif
-		
-		FILE* fp = fopen(filename, mpiUtil->isHead() ? "w" : "a"); //append from subsequent processes
-		if(!fp) die("Error opening %s for writing.\n", filename);
-		if(mpiUtil->isHead())
-		{	fprintf(fp, "WARNING: Self-Interaction Correction scheme is still experimental, take extreme care when using the numbers below!\n");
-			fprintf(fp, "q\tn\t\"KS Eigenvalue\"\t\"Self-Interaction Error\"\t\"Corrected Eigenvalue\"\t\"Corrected Eigenvalue (no-fillings)\"\n");
+	
+	//Print to a buffer on each process:
+	ostringstream oss;
+	for(int q=e->eInfo.qStart; q<e->eInfo.qStop; q++)
+	{	for(int iDir=0; iDir<3; iDir++)
+			DC[iDir] = D(e->eVars.C[q], iDir);
+		for(int n=0; n<e->eInfo.nBands; n++)
+		{	double selfInteractionError = calcSelfInteractionError(q,n);
+			oss << q
+				<< '\t' << n
+				<< '\t' << e->eVars.Hsub_eigs[q][n]
+				<< '\t' << selfInteractionError
+				<< '\t' << e->eVars.Hsub_eigs[q][n]-(e->eVars.F[q][n] ? 1. : 0.)*selfInteractionError
+				<< '\t' << e->eVars.Hsub_eigs[q][n]-selfInteractionError
+				<< '\n';
 		}
-		for(int q=e->eInfo.qStart; q<e->eInfo.qStop; q++)
-		{	for(int iDir=0; iDir<3; iDir++)
-				DC[iDir] = D(e->eVars.C[q], iDir);
-			for(int n=0; n<e->eInfo.nBands; n++)
-			{	double selfInteractionError = calcSelfInteractionError(q,n);
-				fprintf(fp, "%d\t%i\t%f\t%f\t%f\t%f\n",
-					q, n, e->eVars.Hsub_eigs[q][n], selfInteractionError,
-					e->eVars.Hsub_eigs[q][n]-(e->eVars.F[q][n] ? 1. : 0.)*selfInteractionError,
-					e->eVars.Hsub_eigs[q][n]-selfInteractionError);
-			}
+	}
+	if(!mpiUtil->isHead()) mpiUtil->send(oss.str(), 0, 0); //send to head for writing to file
+	
+	if(mpiUtil->isHead()) //Write to file
+	{	FILE* fp = fopen(filename, "w");
+		if(!fp) die("Error opening %s for writing.\n", filename);
+		fprintf(fp, "WARNING: Self-Interaction Correction scheme is still experimental, take extreme care when using the numbers below!\n");
+		fprintf(fp, "q\tn\t\"KS Eigenvalue\"\t\"Self-Interaction Error\"\t\"Corrected Eigenvalue\"\t\"Corrected Eigenvalue (no-fillings)\"\n");
+		fputs(oss.str().c_str(), fp); //output own buffer
+		for(int iSrc=1; iSrc<mpiUtil->nProcesses(); iSrc++)
+		{	string buf;
+			mpiUtil->recv(buf, iSrc, 0);
+			fputs(buf.c_str(), fp); //output others' buffers in order
 		}
 		fclose(fp);
 	}

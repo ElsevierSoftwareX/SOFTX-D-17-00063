@@ -786,15 +786,14 @@ void DOS::dump()
 			eval.e(iState, iBand) = e->eVars.Hsub_eigs[iState][iBand];
 		}
 		
-	//Synchronize eigenvalues and weights between MPI processes:
-	#ifdef MPI_ENABLED
+	//Synchronize eigenvalues and weights between processes:
 	if(mpiUtil->nProcesses()>1)
 	{	if(mpiUtil->isHead())
 		{	for(int iSrc=1; iSrc<mpiUtil->nProcesses(); iSrc++)
 			{	int qStart = eInfo.qStartOther(iSrc);
 				int qStop = eInfo.qStopOther(iSrc);
 				std::vector<double> message((qStop-qStart)*eInfo.nBands*(weights.size()+1));
-				MPI_Recv(message.data(), message.size(), MPI_DOUBLE, iSrc, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+				mpiUtil->recv(message.data(), message.size(), iSrc, 0);
 				const double* messagePtr = message.data();
 				for(int iState=qStart; iState<qStop; iState++)
 					for(int iBand=0; iBand<eInfo.nBands; iBand++)
@@ -814,11 +813,10 @@ void DOS::dump()
 						*(messagePtr++) = eval.w(iWeight, iState, iBand);
 					*(messagePtr++) = eval.e(iState, iBand);
 				}
-			MPI_Send(message.data(), message.size(), MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
+			mpiUtil->send(message.data(), message.size(), 0, 0);
 		}
 	}
 	if(!mpiUtil->isHead()) return;
-	#endif
 	
 	//Compute and print density of states (head only):
 	string header = "\"Energy\"";

@@ -668,17 +668,13 @@ void ElecVars::spinRestrict()
 	{	int qOther = q + eInfo.nStates/2;
 		if(eInfo.isMine(qOther))
 			memcpy(Y[qOther], Y[q]); //not using operator= because it also changes quantum number
-		#ifdef MPI_ENABLED
 		else
-			MPI_Send((double*)Y[q].data(), 2*Y[q].nData(), MPI_DOUBLE, eInfo.whose(qOther), q, MPI_COMM_WORLD);
-		#endif
+			Y[q].send(eInfo.whose(qOther));
 	}
-	#ifdef MPI_ENABLED
 	for(int qOther=std::max(eInfo.qStart,eInfo.nStates/2); qOther<eInfo.qStop; qOther++)
 	{	int q = qOther - eInfo.nStates/2;
 		if(!eInfo.isMine(q))
-			MPI_Recv((double*)Y[qOther].data(), 2*Y[qOther].nData(), MPI_DOUBLE, eInfo.whose(q), q, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			Y[qOther].recv(eInfo.whose(q));
 	}
-	#endif
 }
 

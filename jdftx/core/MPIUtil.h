@@ -41,11 +41,21 @@ public:
 	~MPIUtil();
 	void exit(int errCode) const; //!< global exit (kill other MPI processes as well)
 
+	//Point-to-point functions:
+	template<typename T> void send(const T* data, size_t nData, int dest, int tag) const; //!< generic array send
+	template<typename T> void recv(T* data, size_t nData, int src, int tag) const; //!< generic array receive
+	template<typename T> void send(const T& data, int dest, int tag) const; //!< generic scalar send
+	template<typename T> void recv(T& data, int src, int tag) const; //!< generic scalar receive
+	void send(const bool* data, size_t nData, int dest, int tag) const; //!< send specialization for bool which is not natively supported by MPI
+	void recv(bool* data, size_t nData, int src, int tag) const; //!< receive specialization for bool which is not natively supported by MPI
+	void send(const string& s, int dest, int tag) const; //!< send string
+	void recv(string& s, int src, int tag) const; //!< send string
+	
 	//Broadcast functions:
 	template<typename T> void bcast(T* data, size_t nData, int root=0) const; //!< generic array broadcast
 	template<typename T> void bcast(T& data, int root=0) const; //!< generic scalar broadcast
 	void bcast(bool* data, size_t nData, int root=0) const; //!< specialization for bool which is not natively supported by MPI
-	void bcast(string& s, int root=0) const;
+	void bcast(string& s, int root=0) const; //!< broadcast string
 
 	//Reduce functions (safe mode gaurantees identical results irrespective of round-off (but could be slower)):
 	enum ReduceOp { ReduceMin, ReduceMax, ReduceSum, ReduceProd, ReduceLAnd, ReduceBAnd, ReduceLOr, ReduceBOr, ReduceLXor, ReduceBXor };
@@ -100,6 +110,28 @@ namespace MPIUtilPrivate
 		return 0;
 	}
 #endif
+}
+
+template<typename T> void MPIUtil::send(const T* data, size_t nData, int dest, int tag) const
+{	using namespace MPIUtilPrivate;
+	#ifdef MPI_ENABLED
+	if(nProcs>1) MPI_Send((T*)data, nData, DataType<T>::get(), dest, tag, MPI_COMM_WORLD);
+	#endif
+}
+
+template<typename T> void MPIUtil::recv(T* data, size_t nData, int src, int tag) const
+{	using namespace MPIUtilPrivate;
+	#ifdef MPI_ENABLED
+	if(nProcs>1) MPI_Recv(data, nData, DataType<T>::get(), src, tag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+	#endif
+}
+
+template<typename T> void MPIUtil::send(const T& data, int dest, int tag) const
+{	send(&data, 1, dest, tag);
+}
+
+template<typename T> void MPIUtil::recv(T& data, int src, int tag) const
+{	recv(&data, 1, src, tag);
 }
 
 template<typename T> void MPIUtil::bcast(T* data, size_t nData, int root) const

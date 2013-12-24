@@ -168,23 +168,9 @@ InvertChi::InvertChi(const Everything& e) : e(e)
 	}
 	
 	//Read wavefunctions:
-	die("Not yet implemented in MPI mode.\n");
 	setFname(wfns)
 	init(C, e.eInfo.nStates, nBandsChi, &e.basis[0], &e.eInfo);
-	size_t expectedLen = 0;
-	for(const ColumnBundle& psi: C)
-		expectedLen += psi.nData() * sizeof(complex);
-	size_t fileLen = fileSize(fname.c_str());
-	if(fileLen<0)
-		die("Error accessing chiGuess wavefunctions %s.\n", fname.c_str());
-	if(fileLen!=expectedLen)
-		die("Length of chiGuess wavefunction file %s is %lu (expected %lu bytes).\n",
-			fname.c_str(), fileLen, expectedLen);
-	fp = fopen(fname.c_str(), "rb");
-	for(int q=0; q<e.eInfo.nStates; q++)
-		((ManagedMemory&)C[q]).read(fp);
-	fclose(fp);
-	#undef setFname
+	read(C, fname.c_str(), e.eInfo);
 }
 
 DataRptrCollection InvertChi::hessian(const DataRptrCollection& dV) const

@@ -52,6 +52,33 @@ void MPIUtil::exit(int errCode) const
 	#endif
 }
 
+//----------------------- Point-to-point routines -------------------------------
+
+void MPIUtil::send(const bool* data, size_t nData, int dest, int tag) const
+{	std::vector<int> intCopy(nData);
+	std::copy(data, data+nData, intCopy.begin());  //Copy data into an integer version
+	send(&intCopy[0], nData, dest, tag); //Send integer version
+}
+
+void MPIUtil::recv(bool* data, size_t nData, int src, int tag) const
+{	std::vector<int> intCopy(nData);
+	recv(&intCopy[0], nData, src, tag); //Receive integer version of data
+	std::copy(intCopy.begin(), intCopy.end(), data);  //Copy data to the target bool version
+}
+
+void MPIUtil::send(const string& s, int dest, int tag) const
+{	unsigned long len = s.length();
+	send(len, dest, tag);
+	send(&s[0], len, dest, tag);
+}
+
+void MPIUtil::recv(string& s, int src, int tag) const
+{	unsigned long len = 0;
+	recv(len, src, tag); s.resize(len);
+	recv(&s[0], len, src, tag);
+}
+
+
 //----------------------- Broadcast routines -------------------------------
 
 void MPIUtil::bcast(bool* data, size_t nData, int root) const
@@ -66,14 +93,13 @@ void MPIUtil::bcast(bool* data, size_t nData, int root) const
 void MPIUtil::bcast(string& s, int root) const
 {	if(nProcs>1)
 	{	//Synchronize length of string:
-		int len = s.length();
+		unsigned long len = s.length();
 		bcast(len, root);
 		if(iProc!=root) s.resize(len);
 		//Bcast content:
 		bcast(&s[0], len, root);
 	}
 }
-
 
 //----------------------- Reduction routines -------------------------------
 

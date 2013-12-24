@@ -214,21 +214,17 @@ void ElecInfo::printFillings(FILE* fp) const
 	if(mpiUtil->isHead())
 		for(int q=0; q<nStates; q++)
 		{	diagMatrix const* Fq = &e->eVars.F[q];
-			#ifdef MPI_ENABLED
 			diagMatrix FqTemp;
 			if(!isMine(q))
 			{	FqTemp.resize(nBands);
-				MPI_Recv(FqTemp.data(), nBands, MPI_DOUBLE, whose(q), 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+				FqTemp.recv(whose(q));
 				Fq = &FqTemp;
 			}
-			#endif
 			((*Fq) * (spinType==SpinNone ? 2 : 1)).print(fp, "%20.14le ");
 		}
-	#ifdef MPI_ENABLED
-	if(!mpiUtil->isHead())
+	else
 		for(int q=qStart; q<qStop; q++)
-			MPI_Send((void*)e->eVars.F[q].data(), nBands, MPI_DOUBLE, 0, 0, MPI_COMM_WORLD);
-	#endif
+			e->eVars.F[q].send(0);
 }
 
 void ElecInfo::mixFillings(std::vector<diagMatrix>& F, Energies& ener)

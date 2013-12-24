@@ -174,13 +174,11 @@ void ElecMinimizer::spinRestrictGrad(ElecGradient& grad)
 		//Move second spin channel gradient contributions to the first one (due to spin-restriction constraint)
 		if(eInfo.isMine(qOther))
 			grad.Y[q] += grad.Y[qOther];
-		#ifdef MPI_ENABLED
 		else
 		{	ColumnBundle dY = grad.Y[q].similar();
-			MPI_Recv((double*)dY.data(), 2*dY.nData(), MPI_DOUBLE, eInfo.whose(qOther), q, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+			dY.recv(eInfo.whose(qOther));
 			grad.Y[q] += dY;
 		}
-		#endif
 		//Recompute the preconditioned gradient including the fillings weights:
 		if(precond)
 		{	double KErollover = 2.*e.ener.E["KE"] / eInfo.nElectrons;
@@ -189,10 +187,8 @@ void ElecMinimizer::spinRestrictGrad(ElecGradient& grad)
 	}
 	for(int qOther=std::max(eInfo.qStart,eInfo.nStates/2); qOther<eInfo.qStop; qOther++)
 	{	int q = qOther - eInfo.nStates/2;
-		#ifdef MPI_ENABLED
 		if(!eInfo.isMine(q))
-			MPI_Send((double*)grad.Y[qOther].data(), 2*grad.Y[qOther].nData(), MPI_DOUBLE, eInfo.whose(q), q, MPI_COMM_WORLD);
-		#endif
+			grad.Y[qOther].send(eInfo.whose(q));
 		grad.Y[qOther].free();
 		if(precond) Kgrad.Y[qOther].free();
 	}
