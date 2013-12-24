@@ -81,6 +81,7 @@ template<int Nlm, typename Functor> __hostanddev__ void staticLoopYlm(Functor* f
 
 //! Augment electron density by spherical functions (radial functions multiplied by spherical harmonics)
 //! and propagate gradient w.r.t to it to that w.r.t the atom position (accumulate)
+//! (In MPI mode, each process only collects contributions for a subset of G-vectors)
 struct nAugmentFunctor
 {	vector3<> qhat; double q;
 	int nCoeff; double dGinv; const double* nRadial;
@@ -111,15 +112,16 @@ void nAugment_calc(int i, const vector3<int>& iG, const matrix3<>& G,
 	n[i] += functor.n * cis((-2*M_PI)*dot(atpos,iG));
 }
 void nAugment(int Nlm,
-	const vector3<int> S, const matrix3<>& G,
+	const vector3<int> S, const matrix3<>& G, int iGstart, int iGstop,
 	int nCoeff, double dGinv, const double* nRadial, const vector3<>& atpos, complex* n);
 #ifdef GPU_ENABLED
 void nAugment_gpu(int Nlm,
-	const vector3<int> S, const matrix3<>& G,
+	const vector3<int> S, const matrix3<>& G, int iGstart, int iGstop,
 	int nCoeff, double dGinv, const double* nRadial, const vector3<>& atpos, complex* n);
 #endif
 
 //Function for initializing the index arrays used by nAugmentGrad
+//! (In MPI mode, only a subset of G-vectors are indexed on each process (to correspond to nAUgment))
 __hostanddev__ void setNagIndex_calc(int i, const vector3<int>& iG, const vector3<int>& S, const matrix3<>& G, double dGinv, uint64_t* nagIndex)
 {	uint64_t Gindex = uint64_t((iG*G).length() * dGinv);
 	vector3<int> iv = iG; for(int k=0; k<3; k++) if(iv[k]<0) iv[k] += S[k];

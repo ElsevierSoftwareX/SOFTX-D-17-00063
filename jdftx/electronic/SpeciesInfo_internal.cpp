@@ -37,20 +37,21 @@ void Vnl(int nbasis, int atomStride, int nAtoms, int l, int m, const vector3<> k
 }
 
 //Augment electron density by spherical functions
-template<int Nlm> void nAugment_sub(size_t iStart, size_t iStop, const vector3<int> S, const matrix3<>& G,
+template<int Nlm> void nAugment_sub(size_t diStart, size_t diStop, const vector3<int> S, const matrix3<>& G, int iGstart,
 	int nCoeff, double dGinv, const double* nRadial, const vector3<>& atpos, complex* n)
-{
+{	size_t iStart = iGstart + diStart;
+	size_t iStop = iGstart + diStop;
 	THREAD_halfGspaceLoop( (nAugment_calc<Nlm>)(i, iG, G, nCoeff, dGinv, nRadial, atpos, n); )
 }
-template<int Nlm> void nAugment(const vector3<int> S, const matrix3<>& G,
+template<int Nlm> void nAugment(const vector3<int> S, const matrix3<>& G, int iGstart, int iGstop,
 	int nCoeff, double dGinv, const double* nRadial, const vector3<>& atpos, complex* n)
 {
-	threadLaunch(nAugment_sub<Nlm>, S[0]*S[1]*(S[2]/2+1), S, G, nCoeff, dGinv, nRadial, atpos, n);
+	threadLaunch(nAugment_sub<Nlm>, iGstop-iGstart, S, G, iGstart, nCoeff, dGinv, nRadial, atpos, n);
 }
-void nAugment(int Nlm, const vector3<int> S, const matrix3<>& G,
+void nAugment(int Nlm, const vector3<int> S, const matrix3<>& G, int iGstart, int iGstop,
 	int nCoeff, double dGinv, const double* nRadial, const vector3<>& atpos, complex* n)
 {	
-	SwitchTemplate_Nlm(Nlm, nAugment, (S, G, nCoeff, dGinv, nRadial, atpos, n) )
+	SwitchTemplate_Nlm(Nlm, nAugment, (S, G, iGstart, iGstop, nCoeff, dGinv, nRadial, atpos, n) )
 }
 
 //Function for initializing the index arrays used by nAugmentGrad

@@ -48,22 +48,23 @@ void Vnl_gpu(int nbasis, int atomStride, int nAtoms, int l, int m, vector3<> k, 
 
 
 //Augment electron density by spherical functions
-template<int Nlm> __global__ void nAugment_kernel(int zBlock, const vector3<int> S, const matrix3<> G,
+template<int Nlm> __global__ void nAugment_kernel(int zBlock, const vector3<int> S, const matrix3<> G, int iGstart, int iGstop,
 	int nCoeff, double dGinv, const double* nRadial, const vector3<> atpos, complex* n)
 {	COMPUTE_halfGindices
+	if(i<iGstart || i>=iGstop) return;
 	nAugment_calc<Nlm>(i, iG, G, nCoeff, dGinv, nRadial, atpos, n);
 }
-template<int Nlm> void nAugment_gpu(const vector3<int> S, const matrix3<>& G,
+template<int Nlm> void nAugment_gpu(const vector3<int> S, const matrix3<>& G, int iGstart, int iGstop,
 	int nCoeff, double dGinv, const double* nRadial, const vector3<>& atpos, complex* n)
 {	GpuLaunchConfigHalf3D glc(nAugment_kernel<Nlm>, S);
 	for(int zBlock=0; zBlock<glc.zBlockMax; zBlock++)
-		nAugment_kernel<Nlm><<<glc.nBlocks,glc.nPerBlock>>>(zBlock, S, G, nCoeff, dGinv, nRadial, atpos, n);
+		nAugment_kernel<Nlm><<<glc.nBlocks,glc.nPerBlock>>>(zBlock, S, G, iGstart, iGstop, nCoeff, dGinv, nRadial, atpos, n);
 	gpuErrorCheck();
 }
-void nAugment_gpu(int Nlm, const vector3<int> S, const matrix3<>& G,
+void nAugment_gpu(int Nlm, const vector3<int> S, const matrix3<>& G, int iGstart, int iGstop,
 	int nCoeff, double dGinv, const double* nRadial, const vector3<>& atpos, complex* n)
 {
-	SwitchTemplate_Nlm(Nlm, nAugment_gpu, (S, G, nCoeff, dGinv, nRadial, atpos, n) )
+	SwitchTemplate_Nlm(Nlm, nAugment_gpu, (S, G, iGstart, iGstop, nCoeff, dGinv, nRadial, atpos, n) )
 }
 
 
