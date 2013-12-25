@@ -62,7 +62,7 @@ struct LCAOminimizer : Minimizable<ElecGradient> //Uses only the B entries of El
 		}
 		
 		//Update fillings (Aux algorithm, fixed N only):
-		double mu = e.eInfo.findMu(B_eigs, e.eInfo.nElectrons), dmuNum=0.0, dmuDen=0.0;
+		double mu = e.eInfo.findMu(B_eigs, e.eInfo.nElectrons), dmuNumDen[2] = { 0., 0. };
 		std::vector<diagMatrix> F(e.eInfo.nStates);
 		for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 			F[q] = e.eInfo.fermi(mu, B_eigs[q]);
@@ -107,15 +107,16 @@ struct LCAOminimizer : Minimizable<ElecGradient> //Uses only the B entries of El
 				eVars.Hsub[q] = HniRot + (eVars.C[q]^HC[q]);
 				//Nconstraint contributions to gradient:
 				diagMatrix fprime = e.eInfo.fermiPrime(mu, B_eigs[q]);
-				dmuNum += qnum.weight * trace(fprime * (diag(eVars.Hsub[q])-B_eigs[q]));
-				dmuDen += qnum.weight * trace(fprime);
+				dmuNumDen[0] += qnum.weight * trace(fprime * (diag(eVars.Hsub[q])-B_eigs[q]));
+				dmuNumDen[1] += qnum.weight * trace(fprime);
 			}
 		}
 		mpiUtil->allReduce(ener.E["NI"], MPIUtil::ReduceSum);
 		
 		//Final gradient propagation to auxiliary Hamiltonian:
 		if(grad) 
-		{	matrix dmuContrib = eye(nBands) * (dmuNum/dmuDen); //contribution due to Nconstraint via the mu gradient 
+		{	mpiUtil->allReduce(dmuNumDen, 2, MPIUtil::ReduceSum);
+			matrix dmuContrib = eye(nBands) * (dmuNumDen[0]/dmuNumDen[1]); //contribution due to Nconstraint via the mu gradient 
 			for(int q=e.eInfo.qStart; q<e.eInfo.qStop; q++)
 			{	const QuantumNumber& qnum = e.eInfo.qnums[q];
 				matrix gradF = eVars.Hsub[q]-B_eigs[q]-dmuContrib; //gradient w.r.t fillings
