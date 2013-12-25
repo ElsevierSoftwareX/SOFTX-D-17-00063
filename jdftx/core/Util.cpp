@@ -155,13 +155,13 @@ void initSystem(int argc, char** argv)
 	#endif
 	
 	//Limit thread count if running within SLURM:
-	const char* slurmCpusPerNode = getenv("SLURM_JOB_CPUS_PER_NODE");
-	if(slurmCpusPerNode)
+	const char* slurmCpusPerTask = getenv("SLURM_CPUS_PER_TASK");
+	if(slurmCpusPerTask)
 	{	int nThreadsMax;
-		if(sscanf(slurmCpusPerNode, "%d", &nThreadsMax)==1)
+		if(sscanf(slurmCpusPerTask, "%d", &nThreadsMax)==1)
 			nProcsAvailable = nThreadsMax; //Slurm spec found, update available processor count (Thread.h)
 		else
-			logPrintf("Could not determine thread count from SLURM_JOB_CPUS_PER_NODE=\"%s\".\n", slurmCpusPerNode);
+			logPrintf("Could not determine thread count from SLURM_CPUS_PER_TASK=\"%s\".\n", slurmCpusPerTask);
 	}
 	logPrintf("Current process will run with a maximum of %d cpu threads.\n", nProcsAvailable);
 	
