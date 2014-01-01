@@ -104,6 +104,7 @@ double dot(const IonicGradient& x, const IonicGradient& y)
 		for(unsigned atom=0; atom<x[sp].size(); atom++)
 			result += dot(x[sp][atom], y[sp][atom]);
 	}
+	mpiUtil->bcast(result); //ensure consistency to numerical precision
 	return result;
 }
 
@@ -178,6 +179,7 @@ void IonicMinimizer::step(const IonicGradient& dir, double alpha)
 	{	SpeciesInfo& spInfo = *(iInfo.species[sp]);
 		for(unsigned atom=0; atom<spInfo.atpos.size(); atom++)
 			spInfo.atpos[atom] += dpos[sp][atom]; 
+		mpiUtil->bcast((double*)spInfo.atpos.data(), 3*spInfo.atpos.size());
 		#ifdef GPU_ENABLED
 		spInfo.sync_atposGpu();
 		#endif
@@ -198,7 +200,10 @@ double IonicMinimizer::compute(IonicGradient* grad)
 	{	e.iInfo.ionicEnergyAndGrad(e.iInfo.forces); //compute forces in lattice coordinates
 		*grad = -e.gInfo.invRT * e.iInfo.forces; //gradient in cartesian coordinates (and negative of force)
 	}
-	return relevantFreeEnergy(e);
+	
+	double ener = relevantFreeEnergy(e);
+	mpiUtil->bcast(ener);
+	return ener;
 }
 
 IonicGradient IonicMinimizer::precondition(const IonicGradient& grad)

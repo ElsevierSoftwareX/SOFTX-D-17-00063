@@ -95,6 +95,7 @@ double ElecMinimizer::compute(ElecGradient* grad)
 	if(grad) grad->init(e);
 	double ener = e.eVars.elecEnergyAndGrad(e.ener, grad, precond ? &Kgrad : 0);
 	if(grad && eInfo.spinRestricted) spinRestrictGrad(*grad);
+	mpiUtil->bcast(ener);
 	return ener;
 }
 
